@@ -1,4 +1,4 @@
-const prisma = require('../../utils/prismaClient');
+const prisma = require('../../utils/PrismaClient');
 const axios = require('axios');
 
 const getUserStats = async (req, res) => {
