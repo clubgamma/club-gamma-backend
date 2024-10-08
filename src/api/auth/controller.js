@@ -43,7 +43,7 @@ const githubCallback = async (req, res, next) => {
     logger.info(`[/auth/github/callback] - Successfully authenticated user: ${user.sys_id}`);
 
     // Redirect to frontend
-    res.redirect(process.env.FRONTEND_URL+"/redirect?token="+token);
+    res.redirect(process.env.FRONTEND_URL+"/redirect/"+token);
 }
 
 module.exports = {
