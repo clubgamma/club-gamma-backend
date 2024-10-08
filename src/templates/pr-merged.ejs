@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Pull Request is Merged! 🎉</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+<table cellpadding="0" cellspacing="0" style="width: 100%; background-color: #f4f4f5;">
+    <tr>
+        <td style="padding: 20px;">
+            <table cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <tr>
+                    <td>
+                        <!-- Header Section -->
+                        <div style="text-align: center; padding: 30px 20px; background-color: #d71e3d;">
+                            <img src="https://drive.google.com/uc?export=view&id=1S6V4bdLjKMJ18CvQlLFb1ZvhG09hkqh5" alt="Club Gamma" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid white;">
+                            <h1 style="color: #ffffff; margin-top: 15px; font-size: 24px;">Pull Request Merged!</h1>
+                        </div>
+
+                        <!-- Main Content -->
+                        <div style="padding: 30px;">
+                            <!-- Congratulations Message -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <h2 style="color: #111827; font-size: 20px; margin-bottom: 15px;">Congratulations <%= userName %>! 🎉</h2>
+                                <p style="color: #4b5563; line-height: 1.6;">Your pull request <strong style="color: #d71e3d;">#<%= prNumber %></strong> has been successfully merged into <strong>Club Gamma's</strong> project repository.</p>
+                            </div>
+
+                            <!-- PR Details Card -->
+                            <div style="background-color: #f8fafc; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+                                <h3 style="color: #111827; font-size: 18px; margin-bottom: 15px;">Pull Request Details</h3>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;"><strong>Title:</strong></td>
+                                        <td style="padding: 8px 0; color: #111827;"><%= prTitle %></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;"><strong>Repository:</strong></td>
+                                        <td style="padding: 8px 0;"><a href="<%= repoLink %>" style="color: #d71e3d; text-decoration: none;"><%= repoName %></a></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;"><strong>Merged On:</strong></td>
+                                        <td style="padding: 8px 0; color: #111827;"><%= mergeDate %></td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 8px 0; color: #6b7280;"><strong>Reviewed By:</strong></td>
+                                        <td style="padding: 8px 0; color: #111827;"><%= reviewerName %></td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            <!-- CTA Button -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <h3 style="color: #111827; font-size: 18px; margin-bottom: 15px;">Check Your Ranking 🏆</h3>
+                                <p style="color: #4b5563; margin-bottom: 20px;">See where you stand on the leaderboard!</p>
+                                <a href="<%= leaderboardLink %>" style="display: inline-block; padding: 12px 24px; background-color: #d71e3d; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">View Leaderboard</a>
+                            </div>
+
+                            <!-- What's Next Section -->
+                            <div style="margin-bottom: 30px;">
+                                <h3 style="color: #111827; font-size: 18px; margin-bottom: 15px;">What's Next?</h3>
+                                <p style="color: #4b5563; line-height: 1.6;">Keep the momentum going! Whether it's improving documentation, fixing bugs, or developing new features, your contributions make a difference.</p>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="background-color: #f8fafc; padding: 30px; text-align: center;">
+                            <p style="color: #4b5563; margin-bottom: 20px;">Need help? Contact us at <a href="mailto:gce@charusat.edu.in" style="color: #d71e3d; text-decoration: none;">gce@charusat.edu.in</a><br>or reach out to <strong>Jalay Movaliya</strong> at +91 8780279011</p>
+
+                            <!-- Social Links -->
+                            <div style="margin-top: 20px;">
+                                <a href="https://github.com" style="display: inline-block; margin: 0 10px;"><img src="https://drive.google.com/uc?export=view&id=1BZ0DeqElnneDglRobMpkvkBxTnc6wY4E" alt="GitHub" style="width: 30px;"></a>
+                                <a href="https://instagram.com" style="display: inline-block; margin: 0 10px;"><img src="https://drive.google.com/uc?export=view&id=1g4oLjFe5kcaCyuHrQNyfoXXM4YqCpsDZ" alt="Instagram" style="width: 30px;"></a>
+                                <a href="https://twitter.com" style="display: inline-block; margin: 0 10px;"><img src="https://drive.google.com/uc?export=view&id=1PzC2_CS4kR8GQe82RQYb-QaNUviotiWg" alt="Twitter" style="width: 30px;"></a>
+                                <a href="https://linkedin.com" style="display: inline-block; margin: 0 10px;"><img src="https://drive.google.com/uc?export=view&id=1CBixzPbSidMTdWnwlzjJVX2Ur6AdlaM3" alt="LinkedIn" style="width: 30px;"></a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
