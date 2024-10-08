@@ -40,18 +40,10 @@ const githubCallback = async (req, res, next) => {
         expiresIn: "7d",
     });
 
-    // Set the cookie with HttpOnly and Secure flags
-    res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        sameSite: 'strict',
-    });
-
     logger.info(`[/auth/github/callback] - Successfully authenticated user: ${user.sys_id}`);
 
     // Redirect to frontend
-    res.redirect(process.env.FRONTEND_URL);
+    res.redirect(process.env.FRONTEND_URL+"/redirect?token="+token);
 }
 
 module.exports = {
