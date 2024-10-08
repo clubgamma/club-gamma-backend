@@ -1,4 +1,4 @@
-const prisma = require('../../utils/prismaClient');
+const prisma = require('../../utils/PrismaClient');
 
 const getLeaderboard = async (req, res) => {
     const { page = 1, limit = 10 } = req.query;  // Get page and limit from query parameters with default values
