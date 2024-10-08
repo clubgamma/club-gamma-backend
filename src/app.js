@@ -32,8 +32,9 @@ app.get('/sendmail', async (req, res) => {
 
 app.use(morgan("[:date[clf]] :method :url :status :res[content-length] - :response-time ms"));
 
+console.log(process.env.FRONTEND_URL);
 app.use(cors({
-    origin: ['http://localhost:4173', 'http://localhost:5173'],
+    origin: [process.env.FRONTEND_URL],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true
 }));
