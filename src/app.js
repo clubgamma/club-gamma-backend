@@ -16,26 +16,11 @@ const prisma = new PrismaClient(); // Initialize prisma client
 
 const app = express();
 const server = http.createServer(app);
-app.get('/sendmail', async (req, res) => {
-    await mailer.sendPrMergedMail('jalaym825@gmail.com', {
-        userName: "John Doe",
-        prNumber: 42,
-        prTitle: "Added Dark Mode to the Web Interface",
-        repoName: "Club Gamma Project",
-        repoLink: "https://github.com/clubgamma/project",
-        mergeDate: "October 7, 2024",
-        reviewerName: "Jane Smith",
-        leaderboardLink: "https://clubgamma.com/leaderboard"
-    })
-    res.send("Mail sent");
-})
-
 app.use(morgan("[:date[clf]] :method :url :status :res[content-length] - :response-time ms"));
 
 console.log(process.env.FRONTEND_URL);
 app.use(cors({
     origin: [process.env.FRONTEND_URL],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true
 }));
 

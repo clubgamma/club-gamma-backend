@@ -4,9 +4,9 @@ const userRouter = require('./api/users/index');
 
 
 function routes(app) {
-    app.use('/auth', authRouter);
-    app.use('/leaderboard', leaderboardRouter);
-    app.use('/users', userRouter);
+    app.use('/api/auth', authRouter);
+    app.use('/api/leaderboard', leaderboardRouter);
+    app.use('/api/users', userRouter);
 }
 
 module.exports = routes;
