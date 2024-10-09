@@ -26,7 +26,7 @@ model users {
 }
 
 model pullRequests {
-  prNumber   Int       @unique // The number of the pull request
+  prNumber   Int // The number of the pull request
   points     Int       @default(0) // The number of points the PR is worth
   repository String // The full repository name (e.g., "user/repo")
   title      String // The title of the PR
