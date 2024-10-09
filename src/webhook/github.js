@@ -78,7 +78,12 @@ module.exports = async (req, res) => {
             const isMerged = prData.merged;
 
             await prisma.pullRequests.upsert({
-                where: { prNumber: prNumber },
+                where: {
+                    prNumber_repository: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name
+                    }
+                },
                 create: {
                     prNumber: prNumber,
                     repository: req.body.repository.full_name,
@@ -107,7 +112,12 @@ module.exports = async (req, res) => {
                 }, 0);
 
                 await prisma.pullRequests.update({
-                    where: { prNumber: prNumber },
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prNumber,
+                            repository: req.body.repository.full_name
+                        }
+                    },
                     data: { points: points }
                 });
 
@@ -135,7 +145,12 @@ module.exports = async (req, res) => {
             console.log(`PR #${prNumber} reopened`);
 
             await prisma.pullRequests.update({
-                where: { prNumber: prNumber },
+                where: {
+                    prNumber_repository: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name
+                    }
+                },
                 data: { state: 'open' }
             });
             console.log(`PR #${prNumber} state updated to open.`);
