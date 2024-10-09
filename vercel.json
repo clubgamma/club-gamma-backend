@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "src/app.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/templates/**"]
+      }
     }
   ],
   "routes": [
@@ -11,8 +14,5 @@
       "src": "/(.*)",
       "dest": "src/app.js"
     }
-  ],
-  "includeFiles": [
-    "src/templates/**"
   ]
 }
