@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  githubId        String         @id
+  name            String
+  email           String         @unique
+  universityEmail String?
+  avatar          String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  points          Int            @default(0)
+  prs             pullRequests[]
+}
+
+model pullRequests {
+  prNumber   Int // The number of the pull request
+  points     Int       @default(0) // The number of points the PR is worth
+  repository String // The full repository name (e.g., "user/repo")
+  title      String // The title of the PR
+  state      String // The state of the PR: 'open', 'closed', 'merged'
+  mergedBy   String? // The GitHub username of the person who merged the PR (nullable)
+  url        String // The URL of the PR
+  openedAt   DateTime // Timestamp of when the PR was opened
+  closedAt   DateTime? // Timestamp of when the PR was closed (nullable)
+  mergedAt   DateTime? // Timestamp of when the PR was merged (nullable)
+  createdAt  DateTime  @default(now()) // Timestamp of when the record was created in the DB
+  updatedAt  DateTime  @updatedAt // Timestamp of when the record was last updated in the DB
+  authorId   String // Foreign key to the author's githubId
+  author     users     @relation(fields: [authorId], references: [githubId])
+
+  @@unique([prNumber, repository])
+}
