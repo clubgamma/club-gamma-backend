@@ -18,7 +18,7 @@ const app = express();
 app.use(morgan("[:date[clf]] :method :url :status :res[content-length] - :response-time ms"));
 
 app.use(cors({
-    origin: [process.env.FRONTEND_URL],
+    origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
     credentials: true
 }));
 
