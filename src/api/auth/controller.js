@@ -50,69 +50,85 @@ const githubCallback = async (req, res, next) => {
 const getAccessToken = async (req, res, next) => {
     try {
         const code = req.query.code;
-
-        console.log(code)
+        console.log('Received code:', code);
 
         const params = `client_id=${process.env.GITHUB_CLIENT_ID}&client_secret=${process.env.GITHUB_CLIENT_SECRET}&code=${code}`;
 
-        const response = await axios.post('https://github.com/login/oauth/access_token?' + params);
-
-        const accessToken = response.data.split('&')[0].split('=')[1];
-        // get the user data
-        let ghUser = await axios.get('https://api.github.com/user', {
+        const response = await axios.post('https://github.com/login/oauth/access_token?' + params, null, {
             headers: {
-                Authorization: `Bearer ${accessToken}`
+                'Accept': 'application/json'
             }
         });
 
-        ghUser=ghUser.data;
+        console.log('Token response:', response.data);
 
-        console.log(ghUser)
+        const accessToken = response.data.access_token;
+        if (!accessToken) {
+            throw new Error('No access token received from GitHub');
+        }
+
+        // Get the user data
+        let ghUser;
+        try {
+            const userResponse = await axios.get('https://api.github.com/user', {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            });
+            ghUser = userResponse.data;
+            console.log('GitHub user data:', ghUser);
+        } catch (error) {
+            console.error('Error fetching user data:', error.response?.data || error.message);
+            throw new Error('Failed to fetch user data from GitHub');
+        }
 
         let user = await prisma.users.findFirst({
             where: {
                 githubId: ghUser.login
             }
         });
-        //
+
         if (!user) {
-        //     // Fetch emails using the access token
-            const emailResponse = await axios.get('https://api.github.com/user/emails', {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`
-                }
-            });
-        //     // // Find primary email
-            const primaryEmail = emailResponse.data.find(email => email.primary)?.email || emailResponse.data[0]?.email;
-            const universityEmail = emailResponse.data.find(email => email.email.includes('charusat.edu.in'))?.email || null;
-        //
-            user = await prisma.users.create({
-                data: {
-                    githubId: ghUser.login,
-                    email: primaryEmail,
-                    universityEmail: universityEmail,
-                    avatar: ghUser.avatar_url,
-                    name: profile.name,
-                }
-            });
-            await mailer.sendGreetingMail(primaryEmail, user.name);
+            console.log('User not found, creating new user');
+            try {
+                const emailResponse = await axios.get('https://api.github.com/user/emails', {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`
+                    }
+                });
+                console.log('Email response:', emailResponse.data);
+
+                const primaryEmail = emailResponse.data.find(email => email.primary)?.email || emailResponse.data[0]?.email;
+                const universityEmail = emailResponse.data.find(email => email.email.includes('charusat.edu.in'))?.email || null;
+
+                user = await prisma.users.create({
+                    data: {
+                        githubId: ghUser.login,
+                        email: primaryEmail,
+                        universityEmail: universityEmail,
+                        avatar: ghUser.avatar_url,
+                        name: ghUser.name,
+                    }
+                });
+                await mailer.sendGreetingMail(primaryEmail, user.name);
+            } catch (error) {
+                console.error('Error fetching or processing emails:', error.response?.data || error.message);
+                throw new Error('Failed to fetch or process user emails');
+            }
         }
 
-        // create new jwt with githubId
         const token = jwt.sign({ id: user.githubId }, process.env.JWT_SECRET, {
             expiresIn: "7d",
         });
 
-
         return res.status(200).json({
             token,
         });
-    }
-    catch (err) {
+    } catch (err) {
+        console.error('Error in getAccessToken:', err);
         next({ path: '/auth/getAccessToken', status: 400, message: err.message, extraData: err });
     }
-}
-
+};
 module.exports = {
     getUser,
     logout,
