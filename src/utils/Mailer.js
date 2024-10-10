@@ -24,7 +24,7 @@ class Mailer {
             await sgMail.send(msg);
             console.log('Email sent successfully');
         } catch (error) {
-            logger.error(`[sendMail] - ${JSON.stringify(error.response ? error.response.body : error.message)}`);
+            this.logError('sendMail', error);
         }
     }
 
@@ -35,7 +35,7 @@ class Mailer {
             const body = { html: htmlContent };
             await this.sendMail([email], 'Welcome to Club Gamma!', body);
         } catch (error) {
-            logger.error(`[sendGreetingMail] - ${error.stack}`);
+            this.logError('sendGreetingMail', error);
         }
     }
 
@@ -46,7 +46,7 @@ class Mailer {
             const body = { html: htmlContent };
             await this.sendMail([email], 'PR Merged!', body);
         } catch (error) {
-            logger.error(`[sendPrMergedMail] - ${error.stack}`);
+            this.logError('sendPrMergedMail', error);
         }
     }
 
@@ -57,13 +57,27 @@ class Mailer {
             data.links = links;
             ejs.renderFile(templatePath, data, (err, result) => {
                 if (err) {
-                    logger.error(`[renderEjsTemplate] - ${err.stack}`);
+                    this.logError('renderEjsTemplate', err);
                     reject(err);
                 } else {
                     resolve(result);
                 }
             });
         });
+    }
+
+    logError(method, error) {
+        const errorDetails = {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+        };
+
+        if (error.response && error.response.body) {
+            errorDetails.responseBody = error.response.body;
+        }
+
+        logger.error(`[${method}] - ${JSON.stringify(errorDetails, null, 2)}`);
     }
 }
 
