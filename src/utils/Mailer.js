@@ -1,40 +1,36 @@
-const nodemailer = require("nodemailer");
-const logger = require("./Logger");
-const ejs = require("ejs");
-const fs = require("fs");
-const path = require("path");
+const sgMail = require('@sendgrid/mail');
+const logger = require('./Logger');
+const ejs = require('ejs');
+const fs = require('fs');
+const path = require('path');
+const links = require('../../links.json');
 
 class Mailer {
-    from = process.env.GMAIL;
-    transporter;
     constructor() {
-        this.transporter = nodemailer.createTransport({
-            service: "gmail",
-            host: "smtp.gmail.com",
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.MAILER_MAIL,
-                pass: process.env.MAILER_SECRET,
-            },
-        });
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
         this.sendMail = this.sendMail.bind(this);
     }
 
     async sendMail(to, subject, body) {
-        return await this.transporter.sendMail({
-            from: { name: process.env.MAILER_NAME, address: process.env.MAILER_MAIL },
-            to,
-            subject: subject,
-            ...body
-        });
+        try {
+            const msg = {
+                from: { name: process.env.MAILER_NAME, email: process.env.MAILER_MAIL },
+                to,
+                subject: subject,
+                ...body,
+            };
+
+            await sgMail.send(msg);
+            console.log('Email sent successfully');
+        } catch (error) {
+            logger.error(`[sendMail] - ${JSON.stringify(error.response ? error.response.body : error.message)}`);
+        }
     }
 
     async sendGreetingMail(email, userName) {
         try {
-            const htmlContent = await this.renderEjsTemplate('welcome-user', {
-                userName,
-            });
+            const htmlContent = await this.renderEjsTemplate('welcome-user', { userName });
 
             const body = { html: htmlContent };
             await this.sendMail([email], 'Welcome to Club Gamma!', body);
@@ -58,6 +54,7 @@ class Mailer {
         return new Promise((resolve, reject) => {
             const templatePath = path.join(`src/templates/${templateName}.ejs`);
             console.log(templatePath);
+            data.links = links;
             ejs.renderFile(templatePath, data, (err, result) => {
                 if (err) {
                     logger.error(`[renderEjsTemplate] - ${err.stack}`);
