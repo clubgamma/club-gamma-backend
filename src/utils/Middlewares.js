@@ -138,7 +138,7 @@ const rateLimiting = rateLimit({
       statusCode: 429,
       message: "Too many requests from this IP, please try again after 15 minutes.",
     },
-    keyGenerator: (req) => req.user.sys_id, 
+    keyGenerator: (req) => req.user.githubId, 
     standardHeaders: true, 
     legacyHeaders: false,
   });
