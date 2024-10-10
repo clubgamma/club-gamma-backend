@@ -3,6 +3,7 @@ const logger = require("./Logger");
 const prisma = require('./PrismaClient');
 const { merge } = require('lodash');
 const ApiError = require('./ApiError');
+const rateLimit = require('express-rate-limit');
 
 const validateSchema = (schema) => async (req, res, next) => {
     try {
@@ -54,7 +55,7 @@ const verifyJWT = async (req, res, next) => {
             return next({ path: "/middleware/verifyJWT", statusCode: 401, message: "Invalid token" })
         }
         const user = await prisma.users.findUnique({
-            where:{
+            where: {
                 githubId: payload.id
             }
         })
@@ -121,7 +122,7 @@ const verificationMailSent = async (req, res, next) => {
             logger.warn(`[/middleWare/verificationMailSent] - verification mail already sent`);
             logger.debug(`[/middleWare/verificationMailSent] - email: ${req.user.email}`);
             const leftTime = new Date(Number(tokenData.expiresAt) - Date.now());
-            return next({path: "/middleWare/verificationMailSent", statusCode: 400, message: `Verification mail already sent, you can resend it after ${leftTime.getMinutes() != 0 ? `${leftTime.getMinutes()}:${leftTime.getSeconds()} minutes` : `${leftTime.getSeconds()} seconds`}`})
+            return next({ path: "/middleWare/verificationMailSent", statusCode: 400, message: `Verification mail already sent, you can resend it after ${leftTime.getMinutes() != 0 ? `${leftTime.getMinutes()}:${leftTime.getSeconds()} minutes` : `${leftTime.getSeconds()} seconds`}` })
         }
         next();
     } catch (error) {
@@ -129,11 +130,23 @@ const verificationMailSent = async (req, res, next) => {
     }
 }
 
+
+const syncPrsRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: {
+        error: 'Too many requests',
+        message: 'You have exceeded the 100 requests in 15 minutes limit!',
+    },
+    headers: true, 
+});
+
 module.exports = {
     verifyJWT,
     isUser,
     isVerified,
     verificationMailSent,
     validateSchema,
-    errorMiddleware
+    errorMiddleware,
+    syncPrsRateLimiter
 }

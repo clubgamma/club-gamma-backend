@@ -8,6 +8,7 @@ const passport = require('./utils/GithubPassportStrategy');
 const session = require('express-session');
 const githubWebhookHandler = require('./webhook/github');
 const logger = require('./utils/Logger');
+const rateLimit = require('express-rate-limit');
 
 // Initialize prisma client
 const prisma = new PrismaClient();
@@ -79,6 +80,16 @@ if (require.main === module) {
             console.error('Failed to connect to database', err);
         });
 }
+
+// Global rate limiter
+const globalRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 1000, 
+    message: 'Too many requests from this IP, please try again later.'
+});
+
+app.use(globalRateLimiter);
+
 
 // Export the app for Vercel
 module.exports = app;
