@@ -131,17 +131,17 @@ const verificationMailSent = async (req, res, next) => {
 }
 
 const rateLimiting = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
+    windowMs: 2 * 60 * 1000,
+    max: 1,
     message: {
-      path: "/middleWare/rateLimitExceeded",
-      statusCode: 429,
-      message: "Too many requests from this IP, please try again after 15 minutes.",
+        path: "/middleWare/rateLimitExceeded",
+        statusCode: 429,
+        message: "Too many requests from this user, please try again after 2 minutes.",
     },
-    keyGenerator: (req) => req.user.githubId, 
-    standardHeaders: true, 
+    keyGenerator: (req) => req.user.githubId,
+    standardHeaders: true,
     legacyHeaders: false,
-  });
+});
 
 
 module.exports = {
