@@ -3,6 +3,7 @@ const logger = require("./Logger");
 const prisma = require('./PrismaClient');
 const { merge } = require('lodash');
 const ApiError = require('./ApiError');
+const rateLimit = require("express-rate-limit");
 
 const validateSchema = (schema) => async (req, res, next) => {
     try {
@@ -129,11 +130,26 @@ const verificationMailSent = async (req, res, next) => {
     }
 }
 
+const rateLimiting = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: {
+      path: "/middleWare/rateLimitExceeded",
+      statusCode: 429,
+      message: "Too many requests from this IP, please try again after 15 minutes.",
+    },
+    keyGenerator: (req) => req.user.githubId, 
+    standardHeaders: true, 
+    legacyHeaders: false,
+  });
+
+
 module.exports = {
     verifyJWT,
     isUser,
     isVerified,
     verificationMailSent,
     validateSchema,
-    errorMiddleware
+    errorMiddleware,
+    rateLimiting
 }
