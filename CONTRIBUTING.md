@@ -8,3 +8,8 @@
  - Place: Anand, Gujarat
  - Bio: Student at Charusat University.
  - GitHub: [nishantKathrotiya](https://github.com/nishantKathrotiya)
+
+#### Name: Rutu Bhimani
+ - Place: Surat, Gujarat
+ - Bio: Student at Charusat University.
+ - GitHub: [Rutu128](https://github.com/Rutu128)
