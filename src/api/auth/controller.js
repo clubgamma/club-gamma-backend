@@ -107,7 +107,7 @@ const getAccessToken = async (req, res, next) => {
                         email: primaryEmail,
                         universityEmail: universityEmail,
                         avatar: ghUser.avatar_url,
-                        name: ghUser.name,
+                        name: ghUser.name?ghUser.name:ghUser.login,
                     }
                 });
                 await mailer.sendGreetingMail(primaryEmail, user.name);
