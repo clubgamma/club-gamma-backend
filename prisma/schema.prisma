@@ -16,7 +16,7 @@ datasource db {
 model users {
   githubId        String         @id
   name            String
-  email           String         @unique
+  email           String?        @unique
   universityEmail String?
   avatar          String
   createdAt       DateTime       @default(now())
