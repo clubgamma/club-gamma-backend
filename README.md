@@ -5,7 +5,6 @@ Welcome to Club Gamma project! We appreciate your interest and contributions. Pl
 ## General Rules:
 
 - **Creativity Allowed:** Feel free to submit pull requests that break the rules—we might just merge them anyway!
-- **No Build Steps:** Avoid adding build steps like `npm install` to maintain simplicity as a static site.
 - **Preserve Existing Content:** Do not remove existing content.
 - **Code Style:** Your code can be neat, messy, simple, or complex. As long as it works, it's welcome.
 - **Add Your Name:** Remember to add your name to the `contributorsList` file.
@@ -84,16 +83,6 @@ To keep your fork up-to-date with the main repository and avoid conflicts:
 4. **Keep Updated:**
    - Regularly pull changes from the upstream repository to keep your fork updated.
 
-
-###  Add your name
-Add your name to the `CONTRIBUTING.md` file using the below convention:
-
-```markdown
-#### Name: [YOUR NAME](GitHub link)
-- Place: City, State, Country
-- Bio: Who are you?
-- GitHub: [GitHub account name](GitHub link)
-```
 
 We look forward to your contributions and thank you for being a part of our community!
 
