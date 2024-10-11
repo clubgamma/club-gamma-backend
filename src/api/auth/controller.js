@@ -88,7 +88,7 @@ const getAccessToken = async (req, res, next) => {
             }
         });
 
-        if (!user) {
+        if (!user || !user.email) {
             console.log('User not found, creating new user');
             try {
                 const emailResponse = await axios.get('https://api.github.com/user/emails', {
@@ -101,13 +101,20 @@ const getAccessToken = async (req, res, next) => {
                 const primaryEmail = emailResponse.data.find(email => email.primary)?.email || emailResponse.data[0]?.email;
                 const universityEmail = emailResponse.data.find(email => email.email.includes('charusat.edu.in'))?.email || null;
 
-                user = await prisma.users.create({
-                    data: {
+                user = await prisma.users.upsert({
+                    where: {
+                        githubId: ghUser.login
+                    },
+                    create: {
                         githubId: ghUser.login,
                         email: primaryEmail,
                         universityEmail: universityEmail,
                         avatar: ghUser.avatar_url,
                         name: ghUser.name?ghUser.name:ghUser.login,
+                    },
+                    update: {
+                        email: primaryEmail,
+                        universityEmail: universityEmail,
                     }
                 });
                 await mailer.sendGreetingMail(primaryEmail, user.name);
