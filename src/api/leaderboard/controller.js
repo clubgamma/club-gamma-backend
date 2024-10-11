@@ -70,36 +70,82 @@ const searchUser = async(req, res) => {
     const { name } = req.query;
 
     try {
-        const users = await prisma.users.findMany({
+        // First get all users ordered by points to calculate rank
+        const allUsers = await prisma.users.findMany({
+            orderBy: {
+                points: 'desc'
+            },
+            select: {
+                githubId: true,
+                points: true
+            }
+        });
+
+        // Find the matching user with all required fields
+        const user = await prisma.users.findFirst({
             where: {
                 OR: [
                     {
                         name: {
-                            contains: name,  // Perform partial search using "contains" for name
-                            mode: 'insensitive'  // Make search case-insensitive
+                            contains: name,
+                            mode: 'insensitive'
                         }
                     },
                     {
                         githubId: {
-                            contains: name,  // Perform partial search using "contains" for githubId
-                            mode: 'insensitive'  // Make search case-insensitive
+                            contains: name,
+                            mode: 'insensitive'
                         }
                     }
                 ]
             },
-            orderBy: {
-                points: 'desc'  // Order results by points in descending order
-            },
-            select: {
-                name: true,
-                githubId: true,
-                points: true,
-                avatar: true,
-                prs: true
+            include: {
+                prs: {
+                    select: {
+                        state: true
+                    }
+                }
             }
         });
 
-        res.json({ data: users });
+        if (!user) {
+            return res.json({ data: null });
+        }
+
+        // Calculate PR statistics
+        const prStats = user.prs.reduce((acc, pr) => {
+            switch (pr.state.toLowerCase()) {
+                case 'open':
+                    acc.opened++;
+                    break;
+                case 'closed':
+                    acc.closed++;
+                    break;
+                case 'merged':
+                    acc.merged++;
+                    break;
+            }
+            return acc;
+        }, { opened: 0, closed: 0, merged: 0 });
+
+        // Calculate user's rank
+        const rank = allUsers.findIndex(u => u.points <= user.points) + 1;
+
+        // Format the response
+        const formattedUser = {
+            name: user.name,
+            githubId: user.githubId,
+            points: user.points,
+            avatar: user.avatar,
+            prs: {
+                opened: prStats.opened,
+                closed: prStats.closed,
+                merged: prStats.merged
+            },
+            rank
+        };
+
+        res.json({ data: formattedUser });
     } catch (error) {
         console.error('Error searching users:', error);
         res.status(500).send('Error searching users');
