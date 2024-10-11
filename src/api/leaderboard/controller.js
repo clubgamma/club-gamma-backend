@@ -144,7 +144,7 @@ const filterByUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Error searching users:", error);
-    res.status(500).send("Error searching users"+error.message);
+    res.status(500).send("Error searching users");
   }
 };
 
