@@ -136,7 +136,7 @@ module.exports = async (req, res) => {
                     repoLink: req.body.repository.html_url,
                     mergeDate: new Date(prData.merged_at).toDateString(),
                     reviewerName: prData.merged_by.login,
-                    leaderboardLink: "https://clubgamma.tech/leaderboard"
+                    leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
                 });
 
                 console.log(`Updated points for user ${prData.user.login} by ${points}.`);
