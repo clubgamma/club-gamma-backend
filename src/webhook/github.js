@@ -1,15 +1,32 @@
 const crypto = require("crypto");
+const axios = require("axios");
 const prisma = require('../utils/PrismaClient');
 const mailer = require('../utils/Mailer');
 
-async function createUser(githubId) {
+async function getOrCreateUser(githubId) {
     let user = await prisma.users.findUnique({
         where: { githubId: githubId }
     });
 
     if (!user) {
-        console.log(`User with GitHub ID: ${githubId} not found. Skipping the process.`);
-        return null;
+        console.log(`User with GitHub ID: ${githubId} not found. Creating new user.`);
+        try {
+            const response = await axios.get(`https://api.github.com/users/${githubId}`);
+            const userData = response.data;
+
+            user = await prisma.users.create({
+                data: {
+                    githubId: githubId,
+                    name: userData.name || userData.login,
+                    email: userData.email,
+                    avatarUrl: userData.avatar_url,
+                }
+            });
+            console.log(`Created new user: ${user.name}`);
+        } catch (error) {
+            console.error(`Error creating user: ${error.message}`);
+            return null;
+        }
     }
 
     return user;
@@ -48,14 +65,13 @@ module.exports = async (req, res) => {
 
         console.log(`Received pull_request event: Action - ${action}, Branch - ${baseBranch}`);
 
-        // Only proceed if the PR is targeting the 'main' branch
         if (baseBranch !== 'main') {
             console.log(`PR #${prNumber} is not targeting the main branch. Skipping processing.`);
             return res.status(200).send('PR is not for the main branch. Skipping process.');
         }
 
-        let author = await createUser(prData.user.login);
-        if (!author) return res.status(200).send('User not found. Skipping process.');
+        let author = await getOrCreateUser(prData.user.id);
+        if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
 
         if (action === 'opened') {
             console.log(`PR #${prNumber} opened on main branch`);
@@ -68,11 +84,12 @@ module.exports = async (req, res) => {
                     state: 'open',
                     url: prData.html_url,
                     openedAt: new Date(prData.created_at),
-                    points: 0, // Initialize points
+                    points: 0,
                     authorId: author.githubId
                 }
             });
             console.log(`PR #${prNumber} data saved as open.`);
+            return res.status(200).send('PR opened on main branch. Data saved as open.');
         } else if (action === 'closed') {
             console.log(`PR #${prNumber} closed`);
             const isMerged = prData.merged;
@@ -92,7 +109,7 @@ module.exports = async (req, res) => {
                     url: prData.html_url,
                     openedAt: new Date(prData.created_at),
                     points: 0,
-                    authorId: prData.user.login,
+                    authorId: author.githubId,
                     closedAt: new Date(prData.closed_at),
                     mergedAt: isMerged ? new Date(prData.merged_at) : null,
                     mergedBy: isMerged ? prData.merged_by.login : null
@@ -122,14 +139,14 @@ module.exports = async (req, res) => {
                 });
 
                 await prisma.users.update({
-                    where: { githubId: prData.user.login },
+                    where: { githubId: author.githubId },
                     data: {
                         points: { increment: points }
                     }
                 });
 
                 await mailer.sendPrMergedMail(author.email, {
-                    userName: prData.user.login,
+                    userName: author.name,
                     prNumber: prNumber,
                     prTitle: prData.title,
                     repoName: req.body.repository.full_name,
@@ -139,8 +156,11 @@ module.exports = async (req, res) => {
                     leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
                 });
 
-                console.log(`Updated points for user ${prData.user.login} by ${points}.`);
+                console.log(`Updated points for user ${author.name} by ${points}.`);
+                console.log(`Sent email to ${author.email} for merged PR.`);
+                return res.status(200).send('PR merged. Points updated and email sent.');
             }
+            return res.status(200).send('PR closed. State updated to closed.');
         } else if (action === 'reopened') {
             console.log(`PR #${prNumber} reopened`);
 
@@ -154,6 +174,7 @@ module.exports = async (req, res) => {
                 data: { state: 'open' }
             });
             console.log(`PR #${prNumber} state updated to open.`);
+            return res.status(200).send('PR reopened. State updated to open.');
         }
     }
 
