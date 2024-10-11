@@ -40,11 +40,70 @@ const formatUsers = (users, allUsers) => {
   });
 }
 
-const filterByUser = async (req, res) => {
-  const { name, page = 1, limit = 10  } = req.query;
-  //validate the name
-  if (!name || name.trim() === "") {
-    return filterLeaderboard(req, res);
+const filterByUsers = async (req, res) => {
+  const {minPoints, maxPoints, minPrs, page = 1, limit = 10, name} = req.query;
+
+  const userQueryArguments = {
+    skip: (parseInt(page) - 1) * parseInt(limit), // Pagination logic
+    take: parseInt(limit),
+    select: {
+      name: true,
+      githubId: true,
+      points: true,
+      avatar: true,
+      _count: {
+        select: {
+          prs: true, // Count of all PRs
+        },
+      },
+      prs: {
+        select: {
+          prNumber: true,
+          title: true,
+          mergedAt: true,
+          state: true
+        },
+      },
+    },
+    orderBy: {
+      points: "desc",
+    }
+  };
+
+  if (name && name.trim()) {
+    userQueryArguments.where = {
+      OR: [
+        {
+          name: {
+            contains: name, // Changed from startsWith to contains
+            mode: "insensitive",
+          },
+        },
+        {
+          githubId: {
+            contains: name, // Changed from startsWith to contains
+            mode: "insensitive",
+          },
+        },
+      ],
+    };
+  }
+  if (minPoints || maxPoints) {
+    userQueryArguments.where = userQueryArguments.where || {};
+    userQueryArguments.where.points = {
+      gte: parseInt(minPoints) || 0, // Filter users with at least minPoints (default 0)
+      lte: parseInt(maxPoints) || undefined, // Filter users with at most maxPoints
+    };
+  }
+  if (minPrs) {
+    userQueryArguments.where = userQueryArguments.where || {};
+    userQueryArguments.where.prs = {
+      some: {
+        prNumber: {
+          gte: parseInt(minPrs) || 0, // Filter users with at least minPrs
+        }
+      }
+    }
   }
 
   try {
@@ -60,33 +119,7 @@ const filterByUser = async (req, res) => {
     });
 
     // Find all matching users with all required fields
-    const users = await prisma.users.findMany({
-      skip: (parseInt(page) - 1) * parseInt(limit), // Pagination logic
-      take: parseInt(limit),
-      where: {
-        OR: [
-          {
-            name: {
-              contains: name, // Changed from startsWith to contains
-              mode: "insensitive",
-            },
-          },
-          {
-            githubId: {
-              contains: name, // Changed from startsWith to contains
-              mode: "insensitive",
-            },
-          },
-        ],
-      },
-      include: {
-        prs: {
-          select: {
-            state: true,
-          },
-        },
-      },
-    });
+    const users = await prisma.users.findMany(userQueryArguments);
 
     if (!users || users.length === 0) {
       return res.json({
@@ -111,84 +144,10 @@ const filterByUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Error searching users:", error);
-    res.status(500).send("Error searching users");
-  }
-};
-
-const filterLeaderboard = async (req, res) => {
-  const {minPoints, maxPoints, minPrs, page = 1, limit = 10, name} = req.query;
-
-  try {
-    // First get all users ordered by points to calculate rank
-    const allUsers = await prisma.users.findMany({
-      orderBy: {
-        points: "desc",
-      },
-      select: {
-        githubId: true,
-        points: true,
-      },
-    });
-
-    const users = await prisma.users.findMany({
-      skip: (parseInt(page) - 1) * parseInt(limit), // Pagination logic
-      take: parseInt(limit),
-      orderBy: {
-        points: "desc",
-      },
-      where: {
-        points: {
-          gte: parseInt(minPoints) || 0, // Filter users with at least minPoints (default 0)
-          lte: parseInt(maxPoints) || undefined, // Filter users with at most maxPoints
-        },
-        prs: {
-          some: {
-            prNumber: {
-              gte: parseInt(minPrs) || 0, // Filter users with at least minPrs
-            },
-          },
-        },
-      },
-      select: {
-        name: true,
-        githubId: true,
-        points: true,
-        avatar: true,
-        _count: {
-          select: {
-            prs: true, // Count of all PRs
-          },
-        },
-        prs: {
-          select: {
-            prNumber: true,
-            title: true,
-            mergedAt: true,
-          },
-        },
-      },
-    });
-
-    const totalUsers = await prisma.users.count();
-
-    // Transform the users data to include counts of opened, closed, and merged PRs
-    const formattedUsers = formatUsers(users, allUsers);
-
-    res.json({
-      contributors: formattedUsers || [],
-      meta: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalUsers / limit) || 1,
-        totalUsers: totalUsers,
-      },
-    });
-  } catch (error) {
-    console.error("Error filtering users:", error);
-    res.status(500).send("Error filtering users");
+    res.status(500).send("Error searching users"+error.message);
   }
 };
 
 module.exports = {
-  filterByUser,
-  filterLeaderboard,
+  filterByUsers,
 };

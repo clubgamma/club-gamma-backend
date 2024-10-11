@@ -4,8 +4,8 @@ const { verifyJWT } = require('../../utils/Middlewares');
 
 const router = Router();
 
-router.get('/', controller.filterLeaderboard);
-router.get('/search', controller.filterByUser);
-router.get('/filter', controller.filterByUser);
+router.get('/', controller.filterByUsers);
+router.get('/search', controller.filterByUsers);
+router.get('/filter', controller.filterByUsers);
 
 module.exports = router;
