@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
             return res.status(200).send('PR is not for the main branch. Skipping process.');
         }
 
-        let author = await getOrCreateUser(prData.user.id);
+        let author = await getOrCreateUser(prData.user.login);
         if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
 
         if (action === 'opened') {
