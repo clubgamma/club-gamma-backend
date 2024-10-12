@@ -44,8 +44,6 @@ const filterByUsers = async (req, res) => {
   const {minPoints, maxPoints, minPrs, page = 1, limit = 10, name} = req.query;
 
   const userQueryArguments = {
-    skip: (parseInt(page) - 1) * parseInt(limit), // Pagination logic
-    take: parseInt(limit),
     select: {
       name: true,
       githubId: true,
@@ -95,16 +93,6 @@ const filterByUsers = async (req, res) => {
       lte: parseInt(maxPoints) || undefined, // Filter users with at most maxPoints
     };
   }
-  if (minPrs) {
-    userQueryArguments.where = userQueryArguments.where || {};
-    userQueryArguments.where.prs = {
-      some: {
-        prNumber: {
-          gte: parseInt(minPrs) || 0, // Filter users with at least minPrs
-        }
-      }
-    }
-  }
 
   try {
     // First get all users ordered by points to calculate rank
@@ -119,17 +107,28 @@ const filterByUsers = async (req, res) => {
     });
 
     // Find all matching users with all required fields
-    const users = await prisma.users.findMany(userQueryArguments);
+    let users = await prisma.users.findMany(userQueryArguments);
+    let totalUsersWithFilter = users.length;
 
-    if (!users || users.length === 0) {
-      return res.json({
-        contributors: [],
-        meta: {
-          currentPage: 1,
-          totalPages: 1,
-          totalUsers: 0,
-        } });
+    // Prisma ORM doesn't support filtering directly by the aggregated count in the findMany function
+    // So we filter in application
+    if (minPrs) {
+      let _countLower = 0;
+      users = users.filter(item => {
+        if (item._count.prs >= minPrs) {
+          return true;
+        }
+        _countLower++;
+        return false;
+      });
+      totalUsersWithFilter-=_countLower;
     }
+
+    // Javascript Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    users = users.slice(skip, skip + take);
 
     // Transform the users data to include counts of opened, closed, and merged PRs
     const formattedUsers = formatUsers(users, allUsers);
@@ -138,8 +137,8 @@ const filterByUsers = async (req, res) => {
       contributors: formattedUsers,
       meta: {
         currentPage: parseInt(page),
-        totalPages: Math.ceil(allUsers.length / limit) || 1,
-        totalUsers: allUsers.length,
+        totalPages: Math.ceil(totalUsersWithFilter / limit) || 1,
+        totalUsers: totalUsersWithFilter,
       }
     });
   } catch (error) {
