@@ -145,16 +145,18 @@ module.exports = async (req, res) => {
                     }
                 });
 
-                await mailer.sendPrMergedMail(author.email, {
-                    userName: author.name,
-                    prNumber: prNumber,
-                    prTitle: prData.title,
-                    repoName: req.body.repository.full_name,
-                    repoLink: req.body.repository.html_url,
-                    mergeDate: new Date(prData.merged_at).toDateString(),
-                    reviewerName: prData.merged_by.login,
-                    leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
-                });
+                if(!author.email) {
+                    await mailer.sendPrMergedMail(author.email, {
+                        userName: author.name,
+                        prNumber: prNumber,
+                        prTitle: prData.title,
+                        repoName: req.body.repository.full_name,
+                        repoLink: req.body.repository.html_url,
+                        mergeDate: new Date(prData.merged_at).toDateString(),
+                        reviewerName: prData.merged_by.login,
+                        leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
+                    });
+                }
 
                 console.log(`Updated points for user ${author.name} by ${points}.`);
                 console.log(`Sent email to ${author.email} for merged PR.`);
