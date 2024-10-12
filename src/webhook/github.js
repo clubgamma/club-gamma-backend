@@ -19,7 +19,7 @@ async function getOrCreateUser(githubId) {
                     githubId: githubId,
                     name: userData.name || userData.login,
                     email: userData.email,
-                    avatarUrl: userData.avatar_url,
+                    avatar: userData.avatar_url,
                 }
             });
             console.log(`Created new user: ${user.name}`);
