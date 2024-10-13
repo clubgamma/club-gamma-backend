@@ -125,7 +125,7 @@ module.exports = async (req, res) => {
 
             if (isMerged) {
                 const points = prData.labels.reduce((total, label) => {
-                    return total + (prPoints[label.name] || 0);
+                    return total + (prPoints[label.name.toLowerCase()] || 0);
                 }, 0);
 
                 await prisma.pullRequests.update({
