@@ -9,7 +9,7 @@ const getUserStats = async (req, res) => {
 
     try {
         // Get user and their PRs
-        const user = await prisma.users.findUnique({
+        const user = await prisma.users.findFirst({
             where: { githubId: {
                 equals: githubId,
                 mode: 'insensitive'
