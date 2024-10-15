@@ -10,7 +10,11 @@ const getUserStats = async (req, res) => {
     try {
         // Get user and their PRs
         const user = await prisma.users.findUnique({
-            where: { githubId },
+            where: { githubId: {
+                equals: githubId,
+                mode: 'insensitive'
+                } 
+            },
             include: {
                 prs: {
                     orderBy: {
