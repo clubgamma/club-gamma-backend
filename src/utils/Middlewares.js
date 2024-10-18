@@ -3,7 +3,11 @@ const logger = require("./Logger");
 const prisma = require('./PrismaClient');
 const { merge } = require('lodash');
 const ApiError = require('./ApiError');
+<<<<<<< HEAD
 const rateLimit = require("express-rate-limit");
+=======
+const rateLimit = require('express-rate-limit');
+>>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 
 const validateSchema = (schema) => async (req, res, next) => {
     try {
@@ -55,7 +59,7 @@ const verifyJWT = async (req, res, next) => {
             return next({ path: "/middleware/verifyJWT", statusCode: 401, message: "Invalid token" })
         }
         const user = await prisma.users.findUnique({
-            where:{
+            where: {
                 githubId: payload.id
             }
         })
@@ -122,7 +126,7 @@ const verificationMailSent = async (req, res, next) => {
             logger.warn(`[/middleWare/verificationMailSent] - verification mail already sent`);
             logger.debug(`[/middleWare/verificationMailSent] - email: ${req.user.email}`);
             const leftTime = new Date(Number(tokenData.expiresAt) - Date.now());
-            return next({path: "/middleWare/verificationMailSent", statusCode: 400, message: `Verification mail already sent, you can resend it after ${leftTime.getMinutes() != 0 ? `${leftTime.getMinutes()}:${leftTime.getSeconds()} minutes` : `${leftTime.getSeconds()} seconds`}`})
+            return next({ path: "/middleWare/verificationMailSent", statusCode: 400, message: `Verification mail already sent, you can resend it after ${leftTime.getMinutes() != 0 ? `${leftTime.getMinutes()}:${leftTime.getSeconds()} minutes` : `${leftTime.getSeconds()} seconds`}` })
         }
         next();
     } catch (error) {
@@ -130,6 +134,7 @@ const verificationMailSent = async (req, res, next) => {
     }
 }
 
+<<<<<<< HEAD
 const rateLimiting = rateLimit({
     windowMs: 2 * 60 * 1000,
     max: 1,
@@ -144,6 +149,19 @@ const rateLimiting = rateLimit({
 });
 
 
+=======
+
+const syncPrsRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: {
+        error: 'Too many requests',
+        message: 'You have exceeded the 100 requests in 15 minutes limit!',
+    },
+    headers: true, 
+});
+
+>>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 module.exports = {
     verifyJWT,
     isUser,
@@ -151,5 +169,9 @@ module.exports = {
     verificationMailSent,
     validateSchema,
     errorMiddleware,
+<<<<<<< HEAD
     rateLimiting
+=======
+    syncPrsRateLimiter
+>>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 }

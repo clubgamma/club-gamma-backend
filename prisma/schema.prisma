@@ -13,6 +13,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+scalar DateTime
+
 model users {
   githubId        String         @id
   name            String

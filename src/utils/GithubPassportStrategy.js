@@ -3,8 +3,7 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const prisma = require('./PrismaClient');
 const axios = require('axios');
 const mailer = require('./Mailer');
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+require('dotenv').config();
 
 
 passport.serializeUser(function(user, done) {
@@ -17,9 +16,15 @@ passport.deserializeUser(function(obj, done) {
 
 
 passport.use(new GitHubStrategy({
+<<<<<<< HEAD
     clientID: GITHUB_CLIENT_ID,
     clientSecret: GITHUB_CLIENT_SECRET,
     callbackURL: `/api/auth/github/callback`,
+=======
+        clientID: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        callbackURL: `/api/auth/github/callback`,
+>>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
         scope: ['user:email'] // Add email scope
     },
     async function(accessToken, refreshToken, profile, done) {
