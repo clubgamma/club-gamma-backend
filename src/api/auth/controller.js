@@ -150,6 +150,21 @@ const getAccessToken = async (req, res, next) => {
     }
 };
 
+// Function to fetch pull request count
+const getPullRequestCount = async (githubId, accessToken) => {
+    try {
+        const response = await axios.get(`https://api.github.com/search/pulls?q=author:${githubId}+is:public+repo:clubgamma`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+        return response.data.total_count; // Return the total count of PRs
+    } catch (error) {
+        console.error('Error fetching pull request count:', error.response?.data || error.message);
+        throw new Error('Failed to fetch pull request count from GitHub');
+    }
+};
+
 module.exports = {
     getUser,
     logout,
