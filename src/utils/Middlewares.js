@@ -3,11 +3,8 @@ const logger = require("./Logger");
 const prisma = require('./PrismaClient');
 const { merge } = require('lodash');
 const ApiError = require('./ApiError');
-<<<<<<< HEAD
+
 const rateLimit = require("express-rate-limit");
-=======
-const rateLimit = require('express-rate-limit');
->>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 
 const validateSchema = (schema) => async (req, res, next) => {
     try {
@@ -134,7 +131,6 @@ const verificationMailSent = async (req, res, next) => {
     }
 }
 
-<<<<<<< HEAD
 const rateLimiting = rateLimit({
     windowMs: 2 * 60 * 1000,
     max: 1,
@@ -149,19 +145,16 @@ const rateLimiting = rateLimit({
 });
 
 
-=======
-
 const syncPrsRateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     message: {
         error: 'Too many requests',
         message: 'You have exceeded the 100 requests in 15 minutes limit!',
     },
-    headers: true, 
+    headers: true,
 });
 
->>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 module.exports = {
     verifyJWT,
     isUser,
@@ -169,9 +162,6 @@ module.exports = {
     verificationMailSent,
     validateSchema,
     errorMiddleware,
-<<<<<<< HEAD
-    rateLimiting
-=======
+    rateLimiting,
     syncPrsRateLimiter
->>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97
 }

@@ -9,11 +9,11 @@ const router = Router();
 router.get('/me', verifyJWT, controller.getUser);
 
 // GitHub authentication routes
-router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
-router.get('/github/callback', passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL }), controller.githubCallback);
+// router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+// router.get('/github/callback', passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL }), controller.githubCallback);
 
-// Logout route
-router.post('/logout', controller.logout);
+// // Logout route
+// router.post('/logout', controller.logout);
 
 // Access token route
 router.get('/access_token', controller.getAccessToken);

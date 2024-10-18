@@ -83,7 +83,7 @@ const filterByUsers = async (req, res) => {
       ],
     };
   }
-  
+
   if (minPoints || maxPoints) {
     userQueryArguments.where = userQueryArguments.where || {};
     userQueryArguments.where.points = {
