@@ -3,6 +3,6 @@ const controller = require('./controller');
 
 const router = Router();
 
-router.get('/', controller.getStats);
+router.get('/users/:githubId', controller.getUserStats);
 
 module.exports = router;

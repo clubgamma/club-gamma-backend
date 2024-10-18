@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Contributing to Club Gamma Backend
 
 Thank you for your interest in contributing to our backend project! This document provides guidelines and steps for setting up the development environment and contributing.
@@ -188,3 +189,14 @@ npx prisma db push
 ## License
 
 By contributing, you agree that your contributions will be licensed under the project's license.
+=======
+#### Name: Bhavya Prajapati
+ - Place: Anand, Gujarat
+ - Bio: Student at Charusat University.
+ - GitHub: [bhavyaGP](https://github.com/bhavyaGP)
+
+#### Name: Mit Gajera
+- Place: Surat, Gujarat, India
+- Bio: Student at CHARUSAT
+- GitHub: [mitgajera] (https://github.com/mitgajera)
+>>>>>>> f485fc933e49550f8f297a9d18a1765290d21a97

@@ -88,7 +88,16 @@ module.exports = async (req, res) => {
                     authorId: author.githubId
                 }
             });
-            console.log(`PR #${prNumber} data saved as open.`);
+
+            // Increment the openedPRCount for the user
+            await prisma.users.update({
+                where: { githubId: author.githubId },
+                data: {
+                    openedPRCount: { increment: 1 }
+                }
+            });
+
+            console.log(`PR #${prNumber} data saved as open and openedPRCount incremented.`);
             return res.status(200).send('PR opened on main branch. Data saved as open.');
         } else if (action === 'closed') {
             console.log(`PR #${prNumber} closed`);
@@ -121,8 +130,10 @@ module.exports = async (req, res) => {
                     mergedBy: isMerged ? prData.merged_by.login : null
                 }
             });
+
             console.log(`PR #${prNumber} state updated to ${isMerged ? 'merged' : 'closed'}.`);
 
+            // Update closedPRCount and mergedPRCount if merged
             if (isMerged) {
                 const points = prData.labels.reduce((total, label) => {
                     return total + (prPoints[label.name.toLowerCase()] || 0);
@@ -141,11 +152,13 @@ module.exports = async (req, res) => {
                 await prisma.users.update({
                     where: { githubId: author.githubId },
                     data: {
-                        points: { increment: points }
+                        points: { increment: points },
+                        mergedPRCount: { increment: 1 } // Increment mergedPRCount
                     }
                 });
 
-                if(!author.email) {
+                // Send email notification
+                if (author.email) {
                     await mailer.sendPrMergedMail(author.email, {
                         userName: author.name,
                         prNumber: prNumber,
@@ -158,10 +171,19 @@ module.exports = async (req, res) => {
                     });
                 }
 
-                console.log(`Updated points for user ${author.name} by ${points}.`);
-                console.log(`Sent email to ${author.email} for merged PR.`);
-                return res.status(200).send('PR merged. Points updated and email sent.');
+                console.log(`Updated points and mergedPRCount for user ${author.name} by ${points}.`);
+                return res.status(200).send('PR merged. Points and mergedPRCount updated, and email sent.');
+            } else {
+                // Increment closedPRCount if the PR was closed but not merged
+                await prisma.users.update({
+                    where: { githubId: author.githubId },
+                    data: {
+                        closedPRCount: { increment: 1 }
+                    }
+                });
+                console.log(`PR closed. closedPRCount incremented.`);
             }
+
             return res.status(200).send('PR closed. State updated to closed.');
         } else if (action === 'reopened') {
             console.log(`PR #${prNumber} reopened`);
