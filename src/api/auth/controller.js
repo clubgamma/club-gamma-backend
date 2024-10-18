@@ -4,13 +4,14 @@ const jwt = require('jsonwebtoken');
 const { default: axios } = require('axios');
 const prisma = require("../../utils/PrismaClient");
 
+// Get user info
 const getUser = async (req, res, next) => {
     try {
         const user = req.user;
         if (!user) {
             logger.warn(`[/auth/getUser] - user not found`);
             logger.debug(`[/auth/getUser] - user: ${req.user.sys_id}`);
-            return next({ path: '/auth/getUser', status: 400, message: "User not found" })
+            return next({ path: '/auth/getUser', status: 400, message: "User not found" });
         }
         logger.info(`[/auth/getUser] - success - ${user.sys_id}`);
         logger.debug(`[/auth/getUser] - user: ${user.sys_id}`);
@@ -24,6 +25,7 @@ const getUser = async (req, res, next) => {
     }
 }
 
+// Logout user
 const logout = async (req, res, next) => {
     try {
         res.clearCookie('token');
@@ -35,6 +37,7 @@ const logout = async (req, res, next) => {
     }
 }
 
+// GitHub callback after authentication
 const githubCallback = async (req, res, next) => {
     const user = req.user;
     const token = jwt.sign({ id: user.githubId }, process.env.JWT_SECRET, {
@@ -44,9 +47,10 @@ const githubCallback = async (req, res, next) => {
     logger.info(`[/auth/github/callback] - Successfully authenticated user: ${user.sys_id}`);
 
     // Redirect to frontend
-    res.redirect(process.env.FRONTEND_URL+"/redirect/"+token);
+    res.redirect(process.env.FRONTEND_URL + "/redirect/" + token);
 }
 
+// Get access token from GitHub
 const getAccessToken = async (req, res, next) => {
     try {
         const code = req.query.code;
@@ -88,6 +92,7 @@ const getAccessToken = async (req, res, next) => {
             }
         });
 
+        // If the user is not found, create a new one
         if (!user || !user.email) {
             console.log('User not found, creating new user');
             try {
@@ -110,7 +115,8 @@ const getAccessToken = async (req, res, next) => {
                         email: primaryEmail,
                         universityEmail: universityEmail,
                         avatar: ghUser.avatar_url,
-                        name: ghUser.name?ghUser.name:ghUser.login,
+                        name: ghUser.name ? ghUser.name : ghUser.login,
+                        prCount: 0 // Initialize PR count
                     },
                     update: {
                         email: primaryEmail,
@@ -124,6 +130,13 @@ const getAccessToken = async (req, res, next) => {
             }
         }
 
+        // Fetch user's PR count and update it in the database
+        const prCount = await getPullRequestCount(ghUser.login, accessToken); // Use ghUser.login instead of user.githubId
+        await prisma.users.update({
+            where: { githubId: user.githubId },
+            data: { prCount } // Update PR count in the database
+        });
+
         const token = jwt.sign({ id: user.githubId }, process.env.JWT_SECRET, {
             expiresIn: "7d",
         });
@@ -136,6 +149,22 @@ const getAccessToken = async (req, res, next) => {
         next({ path: '/auth/getAccessToken', status: 400, message: err.message, extraData: err });
     }
 };
+
+// Function to fetch pull request count
+const getPullRequestCount = async (githubId, accessToken) => {
+    try {
+        const response = await axios.get(`https://api.github.com/search/pulls?q=author:${githubId}+is:public`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+        return response.data.total_count; // Return the total count of PRs
+    } catch (error) {
+        console.error('Error fetching pull request count:', error.response?.data || error.message);
+        throw new Error('Failed to fetch pull request count from GitHub');
+    }
+};
+
 module.exports = {
     getUser,
     logout,

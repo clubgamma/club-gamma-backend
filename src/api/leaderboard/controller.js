@@ -2,29 +2,26 @@ const prisma = require("../../utils/PrismaClient");
 
 const formatUsers = (users, allUsers) => {
   return users.map((user) => {
-    // Calculate PR statistics
     const prStats = user.prs.reduce(
-        (acc, pr) => {
-          switch (pr.state.toLowerCase()) {
-            case "open":
-              acc.opened++;
-              break;
-            case "closed":
-              acc.closed++;
-              break;
-            case "merged":
-              acc.merged++;
-              break;
-          }
-          return acc;
-        },
-        { opened: 0, closed: 0, merged: 0 }
+      (acc, pr) => {
+        switch (pr.state.toLowerCase()) {
+          case "open":
+            acc.opened++;
+            break;
+          case "closed":
+            acc.closed++;
+            break;
+          case "merged":
+            acc.merged++;
+            break;
+        }
+        return acc;
+      },
+      { opened: 0, closed: 0, merged: 0 }
     );
 
-    // Calculate user's rank
     const rank = allUsers.findIndex((u) => u.points <= user.points) + 1;
 
-    // Format the user
     return {
       name: user.name,
       githubId: user.githubId,
@@ -41,7 +38,7 @@ const formatUsers = (users, allUsers) => {
 }
 
 const filterByUsers = async (req, res) => {
-  const {minPoints, maxPoints, minPrs, page = 1, limit = 10, name} = req.query;
+  const { minPoints, maxPoints, minPrs, page = 1, limit = 10, name } = req.query;
 
   const userQueryArguments = {
     select: {
@@ -73,29 +70,29 @@ const filterByUsers = async (req, res) => {
       OR: [
         {
           name: {
-            contains: name, // Changed from startsWith to contains
+            contains: name,
             mode: "insensitive",
           },
         },
         {
           githubId: {
-            contains: name, // Changed from startsWith to contains
+            contains: name,
             mode: "insensitive",
           },
         },
       ],
     };
   }
+  
   if (minPoints || maxPoints) {
     userQueryArguments.where = userQueryArguments.where || {};
     userQueryArguments.where.points = {
-      gte: parseInt(minPoints) || 0, // Filter users with at least minPoints (default 0)
-      lte: parseInt(maxPoints) || undefined, // Filter users with at most maxPoints
+      gte: parseInt(minPoints) || 0,
+      lte: parseInt(maxPoints) || undefined,
     };
   }
 
   try {
-    // First get all users ordered by points to calculate rank
     const allUsers = await prisma.users.findMany({
       orderBy: {
         points: "desc",
@@ -106,12 +103,9 @@ const filterByUsers = async (req, res) => {
       },
     });
 
-    // Find all matching users with all required fields
     let users = await prisma.users.findMany(userQueryArguments);
     let totalUsersWithFilter = users.length;
 
-    // Prisma ORM doesn't support filtering directly by the aggregated count in the findMany function
-    // So we filter in application
     if (minPrs) {
       let _countLower = 0;
       users = users.filter(item => {
@@ -121,10 +115,9 @@ const filterByUsers = async (req, res) => {
         _countLower++;
         return false;
       });
-      totalUsersWithFilter-=_countLower;
+      totalUsersWithFilter -= _countLower;
     }
 
-    // Javascript Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 

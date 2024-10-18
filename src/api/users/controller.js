@@ -8,47 +8,30 @@ const getUserStats = async (req, res) => {
     }
 
     try {
-        // Get user and their PRs
         const user = await prisma.users.findFirst({
-            where: { githubId: {
-                equals: githubId,
-                mode: 'insensitive'
-                } 
-            },
+            where: { githubId: { equals: githubId, mode: 'insensitive' }},
             include: {
                 prs: {
-                    orderBy: {
-                        updatedAt: 'desc', // Order by the creation date in descending order
-                    },
+                    orderBy: { updatedAt: 'desc' },
                 },
             },
         });
-        user.prs.forEach(pr => console.log(pr.prNumber))
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
         const githubData = await axios.get(`https://api.github.com/users/${githubId}`, {
-            headers: {
-                Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-            },
+            headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
         });
 
-        // Fetch all users sorted by points in descending order
         const allUsers = await prisma.users.findMany({
-            orderBy: {
-                points: 'desc',
-            },
-            select: {
-                githubId: true,
-            },
+            orderBy: { points: 'desc' },
+            select: { githubId: true },
         });
 
-        // Calculate the rank of the user
         const rank = allUsers.findIndex(u => u.githubId === githubId) + 1;
 
-        // Calculate statistics
         const stats = {
             totalPRs: user.prs.length,
             points: user.points,
@@ -59,17 +42,11 @@ const getUserStats = async (req, res) => {
             prs: [],
         };
 
-        // Calculate repository breakdown
-        // keep recent PRs only
         user.prs = user.prs.slice(0, 3);
 
         user.prs.forEach(pr => {
             if (!stats.repositoryBreakdown[pr.repository]) {
-                stats.repositoryBreakdown[pr.repository] = {
-                    total: 0,
-                    merged: 0,
-                    points: 0,
-                };
+                stats.repositoryBreakdown[pr.repository] = { total: 0, merged: 0, points: 0 };
             }
             stats.repositoryBreakdown[pr.repository].total++;
             stats.prs.push({
@@ -84,22 +61,8 @@ const getUserStats = async (req, res) => {
                 closedAt: pr.closedAt,
                 mergedBy: pr.mergedBy,
             });
-            // if (pr.state === 'merged') {
-            //     stats.repositoryBreakdown[pr.repository].merged++;
-            //     stats.repositoryBreakdown[pr.repository].points += pr.points;
-            //
-            //     // Collect merged PR details
-            //     stats.mergedPRDetails.push({
-            //         prNumber: pr.prNumber,
-            //         title: pr.title,
-            //         points: pr.points,
-            //         mergedAt: pr.mergedAt,
-            //         url: pr.url,
-            //     });
-            // }
         });
 
-        // Respond with user stats and rank
         res.json({
             user: {
                 githubId: user.githubId,
@@ -111,7 +74,7 @@ const getUserStats = async (req, res) => {
                 followers: githubData.data.followers,
                 following: githubData.data.following,
                 bio: githubData.data.bio,
-                repositories: githubData.data.public_repos
+                repositories: githubData.data.public_repos,
             },
             stats,
         });
@@ -124,67 +87,50 @@ const getUserStats = async (req, res) => {
 const repositories = [
     'yogi-coder-boy/github'
 ];
+
 const prPoints = {
     "documentation": 1,
     "bug": 2,
     "level 1": 3,
     "level 2": 5,
     "level 3": 8,
-}
+};
 
 const syncPullRequests = async (req, res) => {
     const { githubId } = req.body;
 
     if (!githubId) {
-        return res.status(400).json({ error: 'Missing githubId or invalid repositories' });
+        return res.status(400).json({ error: 'Missing githubId' });
     }
 
     try {
-        // Fetch user from database
-        const user = await prisma.users.findUnique({
-            where: { githubId },
-        });
+        const user = await prisma.users.findUnique({ where: { githubId } });
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Stage 1: Fetch all PRs for each repository concurrently
         const initialPRFetches = repositories.map(repo =>
             axios.get(`https://api.github.com/repos/${repo}/pulls?state=all`, {
-                headers: {
-                    Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-                },
-            })
-                .then(response => ({
-                    repo,
-                    pulls: response.data
-                }))
+                headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
+            }).then(response => ({ repo, pulls: response.data }))
         );
 
         const reposPRs = await Promise.all(initialPRFetches);
 
-        // Stage 2: Fetch detailed PR data for each repository
         const detailedPRFetches = reposPRs.map(async ({ repo, pulls }) => {
             const prDetailPromises = pulls.map(pr =>
                 axios.get(`https://api.github.com/repos/${repo}/pulls/${pr.number}`, {
-                    headers: {
-                        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-                    },
-                })
-                    .then(response => response.data)
+                    headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` },
+                }).then(response => response.data)
             );
 
             const detailedPRs = await Promise.all(prDetailPromises);
-            return {
-                repo,
-                prs: detailedPRs
-            };
+            return { repo, prs: detailedPRs };
         });
 
         const reposDetailedPRs = await Promise.all(detailedPRFetches);
 
-        // Process and save PRs
         const prSavePromises = reposDetailedPRs.flatMap(({ repo, prs }) => {
             prs = prs.filter(pr => pr.user.login === githubId);
             return prs.map(pr => {
@@ -200,7 +146,7 @@ const syncPullRequests = async (req, res) => {
                     mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
                     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
                     mergedBy: pr.merged_by?.login || null,
-                    points: points,
+                    points,
                     authorId: pr.user.login,
                 };
 
@@ -219,12 +165,26 @@ const syncPullRequests = async (req, res) => {
 
         await Promise.all(prSavePromises);
 
+        // Update user PR counts
+        const updatedUser = await prisma.users.update({
+            where: { githubId },
+            data: {
+                totalPRs: {
+                    increment: reposDetailedPRs.flatMap(r => r.prs).filter(pr => pr.user.login === githubId).length,
+                },
+                points: {
+                    increment: reposDetailedPRs.flatMap(r => r.prs)
+                        .filter(pr => pr.user.login === githubId)
+                        .map(pr => pr.labels.map(label => prPoints[label.name] || 0).reduce((a, b) => a + b, 0))
+                        .reduce((a, b) => a + b, 0),
+                },
+            },
+        });
+
         res.json({
             message: 'Synchronization complete',
-            syncedRepos: reposDetailedPRs.map(r => ({
-                name: r.repo,
-                pullCount: r.prs.length
-            }))
+            syncedRepos: reposDetailedPRs.map(r => ({ name: r.repo, pullCount: r.prs.length })),
+            user: updatedUser,
         });
     } catch (error) {
         console.error('Error syncing pull requests:', error);
@@ -234,5 +194,5 @@ const syncPullRequests = async (req, res) => {
 
 module.exports = {
     getUserStats,
-    syncPullRequests
-}
+    syncPullRequests,
+};

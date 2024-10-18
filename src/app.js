@@ -9,6 +9,8 @@ const session = require('express-session');
 const githubWebhookHandler = require('./webhook/github');
 const logger = require('./utils/Logger');
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 // Initialize prisma client
 const prisma = new PrismaClient();
 
@@ -22,22 +24,25 @@ app.use(cors({
     credentials: true
 }));
 
-app.use('/webhook', express.json({
-    verify: (req, res, buf) => {
-        req.rawBody = buf;
-    }
-}), githubWebhookHandler);
-
 app.use(express.json());
-app.use(helmet());
 app.use(cookieParser());
+app.use(helmet());
+
+// Session and passport setup
 app.use(session({
-    secret: 'keyboard cat',
+    secret: process.env.SESSION_SECRET || 'keyboard cat', // Use environment variable for secret
     resave: false,
     saveUninitialized: false
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Webhook handling
+app.use('/webhook', express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}), githubWebhookHandler);
 
 // Root route
 app.get("/", (req, res) => {
@@ -48,8 +53,8 @@ app.get("/", (req, res) => {
 const authRouter = require('./api/auth/index');
 const leaderboardRouter = require('./api/leaderboard/index');
 const userRouter = require('./api/users/index');
-const statsRouter = require('./api/stats/index')
-const {errorMiddleware} = require("./utils/Middlewares");
+const statsRouter = require('./api/stats/index');
+const { errorMiddleware } = require("./utils/Middlewares");
 
 // Apply routes
 app.use('/api/auth', authRouter);
@@ -62,9 +67,7 @@ app.use(errorMiddleware);
 
 // Unhandled rejection handler
 process.on("unhandledRejection", (reason, p) => {
-    logger.debug(
-        `Unhandled Rejection at: Promise ${p} reason: ${reason}`
-    );
+    logger.debug(`Unhandled Rejection at: Promise ${p} reason: ${reason}`);
 });
 
 // Connect to database and start server if running locally

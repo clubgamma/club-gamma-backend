@@ -6,6 +6,7 @@ const mailer = require('./Mailer');
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 
+
 passport.serializeUser(function(user, done) {
     done(null, user);
 });
@@ -14,10 +15,11 @@ passport.deserializeUser(function(obj, done) {
     done(null, obj);
 });
 
+
 passport.use(new GitHubStrategy({
-        clientID: GITHUB_CLIENT_ID,
-        clientSecret: GITHUB_CLIENT_SECRET,
-        callbackURL: `/api/auth/github/callback`,
+    clientID: GITHUB_CLIENT_ID,
+    clientSecret: GITHUB_CLIENT_SECRET,
+    callbackURL: `/api/auth/github/callback`,
         scope: ['user:email'] // Add email scope
     },
     async function(accessToken, refreshToken, profile, done) {
