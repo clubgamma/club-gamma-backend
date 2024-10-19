@@ -13,7 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-scalar DateTime
 
 model users {
   githubId        String         @id
@@ -27,6 +26,7 @@ model users {
   openedPRCount   Int            @default(0) // Count of opened PRs
   closedPRCount   Int            @default(0) // Count of closed PRs
   mergedPRCount   Int            @default(0) // Count of merged PRs
+  prCount         Int            @default(0) // Count of total PRs
   prs             pullRequests[]
 
 }
