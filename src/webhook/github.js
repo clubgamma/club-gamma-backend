@@ -193,44 +193,44 @@ module.exports = async (req, res) => {
             });
             console.log(`PR #${prNumber} state updated to open.`);
             return res.status(200).send('PR reopened. State updated to open.');
-        } else if(action === 'label'){
-            const action = req.body.action;
-            const prNumber = req.body.pull_request.number;
-            const repository = req.body.repository.full_name;
-            const labels = req.body.pull_request.labels.map(label => label.name);
-            if (action === 'created' || action === 'edited' || action === 'deleted') {
-                console.log(`Label ${action} event received for PR #${prNumber}`);
-                const pr = await prisma.pullRequests.findUnique({
+        }
+    }else if(event === 'label'){
+        const action = req.body.action;
+        const prNumber = req.body.pull_request.number;
+        const repository = req.body.repository.full_name;
+        const labels = req.body.pull_request.labels.map(label => label.name);
+        if (action === 'created' || action === 'edited' || action === 'deleted') {
+            console.log(`Label ${action} event received for PR #${prNumber}`);
+            const pr = await prisma.pullRequests.findUnique({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prNumber,
+                        repository: repository
+                    }
+                }
+            });
+            if (!pr) {
+                console.log(`PR #${prNumber} not found in database.`);
+                return res.status(404).send('PR not found');
+            }
+            if (pr.state === 'merged') {
+                await prisma.pullRequests.update({
                     where: {
                         prNumber_repository: {
                             prNumber: prNumber,
                             repository: repository
                         }
+                    },
+                    data: {
+                        labels: labels,
+                        points: labels.reduce((total, label) => {
+                            return total + (prPoints[label.toLowerCase()] || 0);
+                        }, 0)
                     }
                 });
-                if (!pr) {
-                    console.log(`PR #${prNumber} not found in database.`);
-                    return res.status(404).send('PR not found');
-                }
-                if (pr.state === 'merged') {
-                    await prisma.pullRequests.update({
-                        where: {
-                            prNumber_repository: {
-                                prNumber: prNumber,
-                                repository: repository
-                            }
-                        },
-                        data: {
-                            labels: labels,
-                            points: labels.reduce((total, label) => {
-                                return total + (prPoints[label.toLowerCase()] || 0);
-                            }, 0)
-                        }
-                    });
-    
-                    console.log(`Labels updated for merged PR #${prNumber}. Points recalculated.`);
-                    return res.status(200).send('Labels updated and points recalculated for merged PR.');
-                }
+
+                console.log(`Labels updated for merged PR #${prNumber}. Points recalculated.`);
+                return res.status(200).send('Labels updated and points recalculated for merged PR.');
             }
         }
     }
