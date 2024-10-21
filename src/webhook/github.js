@@ -73,54 +73,196 @@ module.exports = async (req, res) => {
         let author = await getOrCreateUser(prData.user.login);
         if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
 
-        if (action === 'opened') {
-            console.log(`PR #${prNumber} opened on main branch`);
+        const labels = prData.labels;
+        let highestPriorityLabel = labels.length > 0 ? labels.reduce((prev, current) => {
+            return (prPoints[current.name.toLowerCase()] > prPoints[prev.name.toLowerCase()]) ? current : prev;
+        }, labels[0]) : null;
 
-            await prisma.pullRequests.create({
-                data: {
-                    prNumber: prNumber,
-                    repository: req.body.repository.full_name,
-                    title: prData.title,
-                    state: 'open',
-                    url: prData.html_url,
-                    openedAt: new Date(prData.created_at),
-                    points: 0,
-                    authorId: author.githubId
-                }
-            });
-            console.log(`PR #${prNumber} data saved as open.`);
-            return res.status(200).send('PR opened on main branch. Data saved as open.');
-        } else if (action === 'closed') {
-            console.log(`PR #${prNumber} closed`);
-            const isMerged = prData.merged;
-
-            await prisma.pullRequests.upsert({
+        if (action === 'synchronize'){
+            const existingPr = await prisma.pullRequests.findUnique({
                 where: {
                     prNumber_repository: {
                         prNumber: prNumber,
                         repository: req.body.repository.full_name
                     }
-                },
-                create: {
-                    prNumber: prNumber,
-                    repository: req.body.repository.full_name,
-                    title: prData.title,
-                    state: isMerged ? 'merged' : 'closed',
-                    url: prData.html_url,
-                    openedAt: new Date(prData.created_at),
-                    points: 0,
-                    authorId: author.githubId,
-                    closedAt: new Date(prData.closed_at),
-                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                    mergedBy: isMerged ? prData.merged_by.login : null
-                },
-                update: {
-                    state: isMerged ? 'merged' : 'closed',
-                    closedAt: new Date(prData.closed_at),
-                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                    mergedBy: isMerged ? prData.merged_by.login : null
                 }
             });
+
+            if (existingPr && existingPr.state === 'merged') {
+                console.log(`PR #${prNumber} is already merged. Checking for label updates.`);
+                if (labels.length === 0 && existingPr.label !== "") {
+                    console.log(`No new labels given. Updating points to zero.`);
+                    await prisma.pullRequests.update({
+                        where: {
+                            prNumber_repository: {
+                                prNumber: prNumber,
+                                repository: req.body.repository.full_name
+                            }
+                        },
+                        data: {
+                            points: 0
+                        }
+                    });
+                    await prisma.users.update({
+                        where: { githubId: author.githubId },
+                        data: {
+                            points: { increment: 0 - existingPr.points }
+                        }
+                    });
+                    return res.status(200).send('PR merged and points updated if necessary.');
+                }
+                if (highestPriorityLabel) {
+                    if (existingPr.label !== highestPriorityLabel.name) {
+                        console.log(`Label has changed. Updating points.`);
+                        const newPoints = prPoints[highestPriorityLabel.name.toLowerCase()] || 0;
+
+                        await prisma.pullRequests.update({
+                            where: {
+                                prNumber_repository: {
+                                    prNumber: prNumber,
+                                    repository: req.body.repository.full_name
+                                }
+                            },
+                            data: {
+                                label: highestPriorityLabel.name,
+                                points: newPoints
+                            }
+                        });
+                
+                        await prisma.users.update({
+                            where: { githubId: author.githubId },
+                            data: {
+                                points: { increment: newPoints - existingPr.points }
+                            }
+                        });
+
+                        console.log(`Updated points for user ${author.name} by ${newPoints - existingPr.points}.`);
+                    }
+                }
+                return res.status(200).send('PR merged and label updated if necessary.');
+            }
+            
+        } else if (action === 'opened') {
+            console.log(`PR #${prNumber} opened on main branch`);
+            if (highestPriorityLabel) {
+                await prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prNumber,
+                            repository: req.body.repository.full_name
+                        }
+                    },
+                    create: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name,
+                        title: prData.title,
+                        state: 'open',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                        points: 0,
+                        authorId: author.githubId,
+                        label: highestPriorityLabel.name 
+                    },
+                    update: {
+                        title: prData.title,
+                        state: 'open',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                        label: highestPriorityLabel.name 
+                    }
+                });
+            }else{
+                await prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prNumber,
+                            repository: req.body.repository.full_name
+                        }
+                    },
+                    create: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name,
+                        title: prData.title,
+                        state: 'open',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                        points: 0,
+                        authorId: author.githubId,
+                    },
+                    update: {
+                        title: prData.title,
+                        state: 'open',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                    }
+                });
+
+            }
+            console.log(`PR #${prNumber} data saved as open.`);
+            return res.status(200).send('PR opened on main branch. Data saved as open.');
+        } else if (action === 'closed') {
+            console.log(`PR #${prNumber} closed`);
+            const isMerged = prData.merged;
+            if (highestPriorityLabel) {
+                await prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prNumber,
+                            repository: req.body.repository.full_name
+                        }
+                    },
+                    create: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name,
+                        title: prData.title,
+                        state: isMerged ? 'merged' : 'closed',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                        points: 0,
+                        authorId: author.githubId,
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null,
+                        label: highestPriorityLabel.name 
+                    },
+                    update: {
+                        state: isMerged ? 'merged' : 'closed',
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null,
+                        label: highestPriorityLabel.name 
+                    }
+                });
+            }else{
+                await prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prNumber,
+                            repository: req.body.repository.full_name
+                        }
+                    },
+                    create: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name,
+                        title: prData.title,
+                        state: isMerged ? 'merged' : 'closed',
+                        url: prData.html_url,
+                        openedAt: new Date(prData.created_at),
+                        points: 0,
+                        authorId: author.githubId,
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null,
+                    },
+                    update: {
+                        state: isMerged ? 'merged' : 'closed',
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null,
+                    }
+                });
+
+            }
             console.log(`PR #${prNumber} state updated to ${isMerged ? 'merged' : 'closed'}.`);
 
             if (isMerged) {
