@@ -23,7 +23,6 @@ const getUserStats = async (req, res) => {
                 },
             },
         });
-        user.prs.forEach(pr => console.log(pr.prNumber))
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });

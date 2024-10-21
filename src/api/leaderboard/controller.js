@@ -1,8 +1,10 @@
 const prisma = require("../../utils/PrismaClient");
 
+
 const formatUsers = (users, allUsers, startIndex) => {
   let lastPoint=null;
   let rank=startIndex;
+
   return users.map((user) => {
     // Calculate PR statistics
     const prStats = user.prs.reduce(
@@ -24,7 +26,7 @@ const formatUsers = (users, allUsers, startIndex) => {
     );
 
     // Calculate user's rank
-    if(lastPoint!=user.points){
+   if(lastPoint!=user.points){
       rank+=1;
       lastPoint=user.points;
     }

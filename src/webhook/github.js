@@ -3,324 +3,290 @@ const axios = require("axios");
 const prisma = require('../utils/PrismaClient');
 const mailer = require('../utils/Mailer');
 
-async function getOrCreateUser(githubId) {
-    let user = await prisma.users.findUnique({
-        where: { githubId: githubId }
-    });
-
-    if (!user) {
-        console.log(`User with GitHub ID: ${githubId} not found. Creating new user.`);
-        try {
-            const response = await axios.get(`https://api.github.com/users/${githubId}`);
-            const userData = response.data;
-
-            user = await prisma.users.create({
-                data: {
-                    githubId: githubId,
-                    name: userData.name || userData.login,
-                    email: userData.email,
-                    avatar: userData.avatar_url,
-                }
-            });
-            console.log(`Created new user: ${user.name}`);
-        } catch (error) {
-            console.error(`Error creating user: ${error.message}`);
-            return null;
-        }
-    }
-
-    return user;
-}
-
-const prPoints = {
+// Constants
+const PR_POINTS = {
     "documentation": 1,
     "bug": 2,
     "level 1": 3,
     "level 2": 5,
     "level 3": 8,
+};
+
+const PR_STATES = {
+    OPEN: 'open',
+    CLOSED: 'closed',
+    MERGED: 'merged'
+};
+
+class WebhookHandler {
+    constructor(webhookSecret) {
+        this.webhookSecret = webhookSecret;
+    }
+
+    validateSignature(signature, rawBody) {
+        if (!signature) return false;
+        const hmac = crypto.createHmac('sha256', this.webhookSecret);
+        const digest = `sha256=${hmac.update(rawBody).digest('hex')}`;
+        return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+    }
+
+    static getHighestPriorityLabel(labels) {
+        if (!labels?.length) return null;
+        return labels.reduce((prev, current) => {
+            const prevPoints = PR_POINTS[prev.name.toLowerCase()] || 0;
+            const currentPoints = PR_POINTS[current.name.toLowerCase()] || 0;
+            return currentPoints > prevPoints ? current : prev;
+        }, labels[0]);
+    }
+
+    static calculatePoints(labels) {
+        return labels.reduce((total, label) => 
+            total + (PR_POINTS[label.name.toLowerCase()] || 0), 0);
+    }
+
+    static async getOrCreateUser(githubId) {
+        try {
+            const user = await prisma.users.findUnique({
+                where: { githubId }
+            });
+            
+            if (user) return user;
+
+            const { data: userData } = await axios.get(
+                `https://api.github.com/users/${githubId}`,
+                { timeout: 5000 }
+            );
+
+            return await prisma.users.create({
+                data: {
+                    githubId,
+                    name: userData.name || userData.login,
+                    email: userData.email,
+                    avatar: userData.avatar_url,
+                }
+            });
+        } catch (error) {
+            console.error(`Error in getOrCreateUser: ${error.message}`);
+            return null;
+        }
+    }
+
+    async handleLabelUpdate(prData, repository, author, existingPr) {
+        if (!existingPr || existingPr.state !== PR_STATES.MERGED) return;
+
+        const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(prData.labels);
+        const newPoints = highestPriorityLabel ? 
+            PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0 : 0;
+
+        if (existingPr.points === newPoints) return;
+
+        const pointsDiff = newPoints - existingPr.points;
+
+        await prisma.$transaction([
+            prisma.pullRequests.update({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prData.number,
+                        repository: repository
+                    }
+                },
+                data: {
+                    label: highestPriorityLabel?.name || null,
+                    points: newPoints
+                }
+            }),
+            prisma.users.update({
+                where: { githubId: author.githubId },
+                data: {
+                    points: { increment: pointsDiff }
+                }
+            })
+        ]);
+
+        console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
+    }
+
+    async handlePrMerge(prData, repository, author) {
+        const points = WebhookHandler.calculatePoints(prData.labels);
+
+        await prisma.$transaction([
+            prisma.pullRequests.update({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prData.number,
+                        repository
+                    }
+                },
+                data: { points }
+            }),
+            prisma.users.update({
+                where: { githubId: author.githubId },
+                data: {
+                    points: { increment: points }
+                }
+            })
+        ]);
+
+        console.log(`Mailing PR merged notification to ${author.name} (${author.email})`);
+        if (author.email) {
+            await mailer.sendPrMergedMail(author.email, {
+                userName: author.name,
+                prNumber: prData.number,
+                prTitle: prData.title,
+                repoName: repository,
+                repoLink: prData.base.repo.html_url,
+                mergeDate: new Date(prData.merged_at).toDateString(),
+                reviewerName: prData.merged_by.login,
+                leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
+            }).catch(error => 
+                console.error(`Failed to send email to ${author.email}: ${error.message}`));
+            console.log(`Sent email to ${author.email}`);
+        }
+
+        return points;
+    }
+
+    async handlePrStateChange(action, prData, repository, author) {
+        const baseData = {
+            prNumber: prData.number,
+            repository,
+            title: prData.title,
+            url: prData.html_url,
+            authorId: author.githubId,
+            label: WebhookHandler.getHighestPriorityLabel(prData.labels)?.name
+        };
+
+        if (action === 'opened' || action === 'reopened') {
+            await prisma.pullRequests.upsert({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prData.number,
+                        repository
+                    }
+                },
+                create: {
+                    ...baseData,
+                    state: PR_STATES.OPEN,
+                    openedAt: new Date(prData.created_at),
+                    points: 0
+                },
+                update: {
+                    ...baseData,
+                    state: PR_STATES.OPEN
+                }
+            });
+        } else if (action === 'closed') {
+            const isMerged = prData.merged;
+            const state = isMerged ? PR_STATES.MERGED : PR_STATES.CLOSED;
+
+            await prisma.pullRequests.upsert({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prData.number,
+                        repository
+                    }
+                },
+                create: {
+                    ...baseData,
+                    state,
+                    openedAt: new Date(prData.created_at),
+                    closedAt: new Date(prData.closed_at),
+                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                    mergedBy: isMerged ? prData.merged_by.login : null,
+                    points: 0
+                },
+                update: {
+                    ...baseData,
+                    state,
+                    closedAt: new Date(prData.closed_at),
+                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                    mergedBy: isMerged ? prData.merged_by.login : null
+                }
+            });
+
+            if (isMerged) {
+                await this.handlePrMerge(prData, repository, author);
+            }
+        }
+    }
 }
 
 module.exports = async (req, res) => {
-    console.log('Received webhook request');
+    const handler = new WebhookHandler(process.env.WEBHOOK_SECRET);
+    
+    try {
+        // Validate headers
+        const signature = req.headers['x-hub-signature-256'];
+        const event = req.headers['x-github-event'];
 
-    const signature = req.headers['x-hub-signature-256'];
-    const event = req.headers['x-github-event'];
-
-    if (!signature || !event) {
-        return res.status(400).send('Missing headers');
-    }
-
-    const hmac = crypto.createHmac('sha256', process.env.WEBHOOK_SECRET);
-    const digest = 'sha256=' + hmac.update(req.rawBody).digest('hex');
-
-    if (signature !== digest) {
-        return res.status(401).send('Invalid signature');
-    }
-
-    if (event === 'pull_request') {
-        const action = req.body.action;
-        const prData = req.body.pull_request;
-        const prNumber = prData.number;
-        const baseBranch = prData.base.ref;
-
-        console.log(`Received pull_request event: Action - ${action}, Branch - ${baseBranch}`);
-
-        if (baseBranch !== 'main') {
-            console.log(`PR #${prNumber} is not targeting the main branch. Skipping processing.`);
-            return res.status(200).send('PR is not for the main branch. Skipping process.');
+        if (!signature || !event) {
+            return res.status(400).json({ error: 'Missing required headers' });
         }
 
-        let author = await getOrCreateUser(prData.user.login);
-        if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
+        // Validate webhook signature
+        if (!handler.validateSignature(signature, req.rawBody)) {
+            return res.status(401).json({ error: 'Invalid signature' });
+        }
 
-        const labels = prData.labels;
-        let highestPriorityLabel = labels.length > 0 ? labels.reduce((prev, current) => {
-            return (prPoints[current.name.toLowerCase()] > prPoints[prev.name.toLowerCase()]) ? current : prev;
-        }, labels[0]) : null;
+        // Handle only pull request events
+        if (event !== 'pull_request') {
+            return res.status(200).json({ message: 'Event ignored' });
+        }
 
-        if (action === 'synchronize'){
+        const { action, pull_request: prData, repository } = req.body;
+        
+        // Skip if not targeting main branch
+        if (prData.base.ref !== 'main') {
+            return res.status(200).json({ 
+                message: 'PR not targeting main branch'
+            });
+        }
+
+        // Get or create user
+        const author = await WebhookHandler.getOrCreateUser(prData.user.login);
+        if (!author) {
+            return res.status(500).json({ 
+                error: 'Failed to get or create user'
+            });
+        }
+
+        // Handle label changes
+        if (action === 'labeled' || action === 'unlabeled') {
             const existingPr = await prisma.pullRequests.findUnique({
                 where: {
                     prNumber_repository: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name
+                        prNumber: prData.number,
+                        repository: repository.full_name
                     }
                 }
             });
-
-            if (existingPr && existingPr.state === 'merged') {
-                console.log(`PR #${prNumber} is already merged. Checking for label updates.`);
-                if (labels.length === 0 && existingPr.label !== "") {
-                    console.log(`No new labels given. Updating points to zero.`);
-                    await prisma.pullRequests.update({
-                        where: {
-                            prNumber_repository: {
-                                prNumber: prNumber,
-                                repository: req.body.repository.full_name
-                            }
-                        },
-                        data: {
-                            points: 0
-                        }
-                    });
-                    await prisma.users.update({
-                        where: { githubId: author.githubId },
-                        data: {
-                            points: { increment: 0 - existingPr.points }
-                        }
-                    });
-                    return res.status(200).send('PR merged and points updated if necessary.');
-                }
-                if (highestPriorityLabel) {
-                    if (existingPr.label !== highestPriorityLabel.name) {
-                        console.log(`Label has changed. Updating points.`);
-                        const newPoints = prPoints[highestPriorityLabel.name.toLowerCase()] || 0;
-
-                        await prisma.pullRequests.update({
-                            where: {
-                                prNumber_repository: {
-                                    prNumber: prNumber,
-                                    repository: req.body.repository.full_name
-                                }
-                            },
-                            data: {
-                                label: highestPriorityLabel.name,
-                                points: newPoints
-                            }
-                        });
-                
-                        await prisma.users.update({
-                            where: { githubId: author.githubId },
-                            data: {
-                                points: { increment: newPoints - existingPr.points }
-                            }
-                        });
-
-                        console.log(`Updated points for user ${author.name} by ${newPoints - existingPr.points}.`);
-                    }
-                }
-                return res.status(200).send('PR merged and label updated if necessary.');
-            }
             
-        } else if (action === 'opened') {
-            console.log(`PR #${prNumber} opened on main branch`);
-            if (highestPriorityLabel) {
-                await prisma.pullRequests.upsert({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: req.body.repository.full_name
-                        }
-                    },
-                    create: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name,
-                        title: prData.title,
-                        state: 'open',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                        points: 0,
-                        authorId: author.githubId,
-                        label: highestPriorityLabel.name 
-                    },
-                    update: {
-                        title: prData.title,
-                        state: 'open',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                        label: highestPriorityLabel.name 
-                    }
-                });
-            }else{
-                await prisma.pullRequests.upsert({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: req.body.repository.full_name
-                        }
-                    },
-                    create: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name,
-                        title: prData.title,
-                        state: 'open',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                        points: 0,
-                        authorId: author.githubId,
-                    },
-                    update: {
-                        title: prData.title,
-                        state: 'open',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                    }
-                });
-
-            }
-            console.log(`PR #${prNumber} data saved as open.`);
-            return res.status(200).send('PR opened on main branch. Data saved as open.');
-        } else if (action === 'closed') {
-            console.log(`PR #${prNumber} closed`);
-            const isMerged = prData.merged;
-            if (highestPriorityLabel) {
-                await prisma.pullRequests.upsert({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: req.body.repository.full_name
-                        }
-                    },
-                    create: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name,
-                        title: prData.title,
-                        state: isMerged ? 'merged' : 'closed',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                        points: 0,
-                        authorId: author.githubId,
-                        closedAt: new Date(prData.closed_at),
-                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                        mergedBy: isMerged ? prData.merged_by.login : null,
-                        label: highestPriorityLabel.name 
-                    },
-                    update: {
-                        state: isMerged ? 'merged' : 'closed',
-                        closedAt: new Date(prData.closed_at),
-                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                        mergedBy: isMerged ? prData.merged_by.login : null,
-                        label: highestPriorityLabel.name 
-                    }
-                });
-            }else{
-                await prisma.pullRequests.upsert({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: req.body.repository.full_name
-                        }
-                    },
-                    create: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name,
-                        title: prData.title,
-                        state: isMerged ? 'merged' : 'closed',
-                        url: prData.html_url,
-                        openedAt: new Date(prData.created_at),
-                        points: 0,
-                        authorId: author.githubId,
-                        closedAt: new Date(prData.closed_at),
-                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                        mergedBy: isMerged ? prData.merged_by.login : null,
-                    },
-                    update: {
-                        state: isMerged ? 'merged' : 'closed',
-                        closedAt: new Date(prData.closed_at),
-                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                        mergedBy: isMerged ? prData.merged_by.login : null,
-                    }
-                });
-
-            }
-            console.log(`PR #${prNumber} state updated to ${isMerged ? 'merged' : 'closed'}.`);
-
-            if (isMerged) {
-                const points = prData.labels.reduce((total, label) => {
-                    return total + (prPoints[label.name.toLowerCase()] || 0);
-                }, 0);
-
-                await prisma.pullRequests.update({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: req.body.repository.full_name
-                        }
-                    },
-                    data: { points: points }
-                });
-
-                await prisma.users.update({
-                    where: { githubId: author.githubId },
-                    data: {
-                        points: { increment: points }
-                    }
-                });
-
-                if(!author.email) {
-                    await mailer.sendPrMergedMail(author.email, {
-                        userName: author.name,
-                        prNumber: prNumber,
-                        prTitle: prData.title,
-                        repoName: req.body.repository.full_name,
-                        repoLink: req.body.repository.html_url,
-                        mergeDate: new Date(prData.merged_at).toDateString(),
-                        reviewerName: prData.merged_by.login,
-                        leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
-                    });
-                }
-
-                console.log(`Updated points for user ${author.name} by ${points}.`);
-                console.log(`Sent email to ${author.email} for merged PR.`);
-                return res.status(200).send('PR merged. Points updated and email sent.');
-            }
-            return res.status(200).send('PR closed. State updated to closed.');
-        } else if (action === 'reopened') {
-            console.log(`PR #${prNumber} reopened`);
-
-            await prisma.pullRequests.update({
-                where: {
-                    prNumber_repository: {
-                        prNumber: prNumber,
-                        repository: req.body.repository.full_name
-                    }
-                },
-                data: { state: 'open' }
-            });
-            console.log(`PR #${prNumber} state updated to open.`);
-            return res.status(200).send('PR reopened. State updated to open.');
+            await handler.handleLabelUpdate(
+                prData, 
+                repository.full_name, 
+                author, 
+                existingPr
+            );
+        } 
+        // Handle PR state changes
+        else if (['opened', 'closed', 'reopened'].includes(action)) {
+            await handler.handlePrStateChange(
+                action, 
+                prData, 
+                repository.full_name, 
+                author
+            );
         }
-    }
 
-    res.status(200).send('Webhook received');
+        return res.status(200).json({ 
+            message: 'Webhook processed successfully' 
+        });
+
+    } catch (error) {
+        console.error('Webhook processing error:', error);
+        return res.status(500).json({ 
+            error: 'Internal server error',
+            message: error.message 
+        });
+    }
 };
