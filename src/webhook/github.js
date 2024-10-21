@@ -77,8 +77,50 @@ module.exports = async (req, res) => {
         const highestPriorityLabel = labels.reduce((prev, current) => {
             return (prPoints[current.name.toLowerCase()] > prPoints[prev.name.toLowerCase()]) ? current : prev;
         }, labels[0]);
-        
-        if (action === 'opened' || action === 'synchronize') {
+
+        if (action === 'synchronize'){
+            const existingPr = await prisma.pullRequests.findUnique({
+                where: {
+                    prNumber_repository: {
+                        prNumber: prNumber,
+                        repository: req.body.repository.full_name
+                    }
+                }
+            });
+
+            if (existingPr && existingPr.state === 'merged') {
+                console.log(`PR #${prNumber} is already merged. Checking for label updates.`);
+
+                if (existingPr.label !== highestPriorityLabel.name) {
+                    console.log(`Label has changed. Updating points.`);
+                    const newPoints = prPoints[highestPriorityLabel.name.toLowerCase()] || 0;
+
+                    await prisma.pullRequests.update({
+                        where: {
+                            prNumber_repository: {
+                                prNumber: prNumber,
+                                repository: req.body.repository.full_name
+                            }
+                        },
+                        data: {
+                            label: highestPriorityLabel.name,
+                            points: newPoints
+                        }
+                    });
+            
+                    await prisma.users.update({
+                        where: { githubId: author.githubId },
+                        data: {
+                            points: { increment: newPoints - existingPr.points }
+                        }
+                    });
+
+                    console.log(`Updated points for user ${author.name} by ${newPoints - existingPr.points}.`);
+                }
+                return res.status(200).send('PR merged and label updated if necessary.');
+            }
+            
+        } else if (action === 'opened') {
             console.log(`PR #${prNumber} opened on main branch`);
 
             await prisma.pullRequests.upsert({
