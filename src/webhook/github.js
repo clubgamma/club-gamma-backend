@@ -97,14 +97,14 @@ module.exports = async (req, res) => {
                     openedAt: new Date(prData.created_at),
                     points: 0,
                     authorId: author.githubId,
-                    labels: highestPriorityLabel.name 
+                    label: highestPriorityLabel.name 
                 },
                 update: {
                     title: prData.title,
                     state: 'open',
                     url: prData.html_url,
                     openedAt: new Date(prData.created_at),
-                    labels: highestPriorityLabel.name 
+                    label: highestPriorityLabel.name 
                 }
             });
             console.log(`PR #${prNumber} data saved as open.`);
@@ -132,14 +132,14 @@ module.exports = async (req, res) => {
                     closedAt: new Date(prData.closed_at),
                     mergedAt: isMerged ? new Date(prData.merged_at) : null,
                     mergedBy: isMerged ? prData.merged_by.login : null,
-                    labels: highestPriorityLabel.name 
+                    label: highestPriorityLabel.name 
                 },
                 update: {
                     state: isMerged ? 'merged' : 'closed',
                     closedAt: new Date(prData.closed_at),
                     mergedAt: isMerged ? new Date(prData.merged_at) : null,
                     mergedBy: isMerged ? prData.merged_by.login : null,
-                    labels: highestPriorityLabel.name 
+                    label: highestPriorityLabel.name 
                 }
             });
             console.log(`PR #${prNumber} state updated to ${isMerged ? 'merged' : 'closed'}.`);
