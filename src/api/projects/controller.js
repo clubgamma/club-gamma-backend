@@ -45,7 +45,9 @@ const getContributors = async (req, res) => {
     }, {});
 
     const response = Object.values(contributorStats);
-
+    
+    response.sort((a, b) => b.totalPoints - a.totalPoints);
+    
     res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching contributors:", error);
