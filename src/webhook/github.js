@@ -127,6 +127,7 @@ class WebhookHandler {
             })
         ]);
 
+        console.log(`Mailing PR merged notification to ${author.name} (${author.email})`);
         if (author.email) {
             await mailer.sendPrMergedMail(author.email, {
                 userName: author.name,
@@ -139,6 +140,7 @@ class WebhookHandler {
                 leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
             }).catch(error => 
                 console.error(`Failed to send email to ${author.email}: ${error.message}`));
+            console.log(`Sent email to ${author.email}`);
         }
 
         return points;
