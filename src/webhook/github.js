@@ -73,6 +73,11 @@ module.exports = async (req, res) => {
         let author = await getOrCreateUser(prData.user.login);
         if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
 
+        const labels = prData.labels;
+        const highestPriorityLabel = labels.reduce((prev, current) => {
+            return (prPoints[current.name.toLowerCase()] > prPoints[prev.name.toLowerCase()]) ? current : prev;
+        }, labels[0]);
+        
         if (action === 'opened' || action === 'synchronize') {
             console.log(`PR #${prNumber} opened on main branch`);
 
@@ -92,14 +97,14 @@ module.exports = async (req, res) => {
                     openedAt: new Date(prData.created_at),
                     points: 0,
                     authorId: author.githubId,
-                    labels: prData.labels.map(label => label.name)
+                    labels: highestPriorityLabel.name 
                 },
                 update: {
                     title: prData.title,
                     state: 'open',
                     url: prData.html_url,
                     openedAt: new Date(prData.created_at),
-                    labels: prData.labels.map(label => label.name)
+                    labels: highestPriorityLabel.name 
                 }
             });
             console.log(`PR #${prNumber} data saved as open.`);
@@ -127,14 +132,14 @@ module.exports = async (req, res) => {
                     closedAt: new Date(prData.closed_at),
                     mergedAt: isMerged ? new Date(prData.merged_at) : null,
                     mergedBy: isMerged ? prData.merged_by.login : null,
-                    labels: prData.labels.map(label => label.name)
+                    labels: highestPriorityLabel.name 
                 },
                 update: {
                     state: isMerged ? 'merged' : 'closed',
                     closedAt: new Date(prData.closed_at),
                     mergedAt: isMerged ? new Date(prData.merged_at) : null,
                     mergedBy: isMerged ? prData.merged_by.login : null,
-                    labels: prData.labels.map(label => label.name)
+                    labels: highestPriorityLabel.name 
                 }
             });
             console.log(`PR #${prNumber} state updated to ${isMerged ? 'merged' : 'closed'}.`);
@@ -193,45 +198,6 @@ module.exports = async (req, res) => {
             });
             console.log(`PR #${prNumber} state updated to open.`);
             return res.status(200).send('PR reopened. State updated to open.');
-        }
-    }else if(event === 'label'){
-        const action = req.body.action;
-        const prNumber = req.body.pull_request.number;
-        const repository = req.body.repository.full_name;
-        const labels = req.body.pull_request.labels.map(label => label.name);
-        if (action === 'created' || action === 'edited' || action === 'deleted') {
-            console.log(`Label ${action} event received for PR #${prNumber}`);
-            const pr = await prisma.pullRequests.findUnique({
-                where: {
-                    prNumber_repository: {
-                        prNumber: prNumber,
-                        repository: repository
-                    }
-                }
-            });
-            if (!pr) {
-                console.log(`PR #${prNumber} not found in database.`);
-                return res.status(404).send('PR not found');
-            }
-            if (pr.state === 'merged') {
-                await prisma.pullRequests.update({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: prNumber,
-                            repository: repository
-                        }
-                    },
-                    data: {
-                        labels: labels,
-                        points: labels.reduce((total, label) => {
-                            return total + (prPoints[label.toLowerCase()] || 0);
-                        }, 0)
-                    }
-                });
-
-                console.log(`Labels updated for merged PR #${prNumber}. Points recalculated.`);
-                return res.status(200).send('Labels updated and points recalculated for merged PR.');
-            }
         }
     }
 
