@@ -1,8 +1,8 @@
 const prisma = require("../../utils/PrismaClient");
 
-const formatUsers = (users, allUsers) => {
+const formatUsers = (users, allUsers, startIndex) => {
   let lastPoint=null;
-  let rank=0;
+  let rank=startIndex;
   return users.map((user) => {
     // Calculate PR statistics
     const prStats = user.prs.reduce(
@@ -132,11 +132,13 @@ const filterByUsers = async (req, res) => {
     // Javascript Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
-
+    
+    const initialRank=parseInt(req.query.lastRank, 10) || 0; 
     users = users.slice(skip, skip + take);
 
     // Transform the users data to include counts of opened, closed, and merged PRs
-    const formattedUsers = formatUsers(users, allUsers);
+    const formattedUsers = formatUsers(users, allUsers, initialRank);
+    const LastRank=formattedUsers.length > 0 ? formattedUsers[formattedUsers.length - 1].rank : initialRank;
 
     res.json({
       contributors: formattedUsers,
@@ -144,6 +146,7 @@ const filterByUsers = async (req, res) => {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalUsersWithFilter / limit) || 1,
         totalUsers: totalUsersWithFilter,
+        lastRank: LastRank
       }
     });
   } catch (error) {
