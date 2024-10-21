@@ -74,9 +74,9 @@ module.exports = async (req, res) => {
         if (!author) return res.status(200).send('Failed to get or create user. Skipping process.');
 
         const labels = prData.labels;
-        const highestPriorityLabel = labels.reduce((prev, current) => {
+        let highestPriorityLabel = labels.length > 0 ? labels.reduce((prev, current) => {
             return (prPoints[current.name.toLowerCase()] > prPoints[prev.name.toLowerCase()]) ? current : prev;
-        }, labels[0]);
+        }, labels[0]).name : "";
 
         if (action === 'synchronize'){
             const existingPr = await prisma.pullRequests.findUnique({
@@ -90,7 +90,27 @@ module.exports = async (req, res) => {
 
             if (existingPr && existingPr.state === 'merged') {
                 console.log(`PR #${prNumber} is already merged. Checking for label updates.`);
-
+                if (labels.length === 0 && existingPr.label !== "") {
+                    console.log(`No new labels given. Updating points to zero.`);
+                    await prisma.pullRequests.update({
+                        where: {
+                            prNumber_repository: {
+                                prNumber: prNumber,
+                                repository: req.body.repository.full_name
+                            }
+                        },
+                        data: {
+                            points: 0
+                        }
+                    });
+                    await prisma.users.update({
+                        where: { githubId: author.githubId },
+                        data: {
+                            points: { increment: 0 - existingPr.points }
+                        }
+                    });
+                    return res.status(200).send('PR merged and points updated if necessary.');
+                }
                 if (existingPr.label !== highestPriorityLabel.name) {
                     console.log(`Label has changed. Updating points.`);
                     const newPoints = prPoints[highestPriorityLabel.name.toLowerCase()] || 0;
