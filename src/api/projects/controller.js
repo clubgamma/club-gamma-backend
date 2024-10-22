@@ -6,7 +6,7 @@ const getContributors = async (req, res) => {
   try {
     const contributors = await prisma.pullRequests.findMany({
       where: {
-        repository: id,
+        repository: "clubgamma/" + id,
       },
       select: {
         author: {
