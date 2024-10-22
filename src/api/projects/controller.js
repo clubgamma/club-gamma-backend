@@ -29,7 +29,7 @@ const getContributors = async (req, res) => {
       const existingContributor = acc[githubId];
 
       if (existingContributor) {
-        existingContributor.contributionsCount += 1;
+        existingContributor.prsCount += 1;
         existingContributor.totalPoints += curr.points;
       } else {
         acc[githubId] = {
@@ -37,7 +37,7 @@ const getContributors = async (req, res) => {
           githubId: curr.author.githubId,
           profileUrl: `https://github.com/${curr.author.githubId}`,
           avatarUrl: curr.author.avatar,
-          contributionsCount: 1,
+          prsCount: 1,
           totalPoints: curr.points,
         };
       }
