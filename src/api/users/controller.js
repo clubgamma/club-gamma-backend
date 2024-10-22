@@ -34,18 +34,6 @@ const getUserStats = async (req, res) => {
             },
         });
 
-        // Fetch all users sorted by points in descending order
-        const allUsers = await prisma.users.findMany({
-            orderBy: {
-                points: 'desc',
-            },
-            select: {
-                githubId: true,
-            },
-        });
-
-        // Calculate the rank of the user
-        const rank = allUsers.findIndex(u => u.githubId === githubId) + 1;
 
         // Calculate statistics
         const stats = {
@@ -106,7 +94,7 @@ const getUserStats = async (req, res) => {
                 avatar: user.avatar,
                 email: user.email,
                 universityEmail: user.universityEmail,
-                rank: rank,
+                rank: user.rank,
                 followers: githubData.data.followers,
                 following: githubData.data.following,
                 bio: githubData.data.bio,

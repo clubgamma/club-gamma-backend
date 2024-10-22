@@ -1,5 +1,6 @@
 const prisma = require("../../utils/PrismaClient");
 
+
 const formatUsers = (users, allUsers) => {
   return users.map((user) => {
     // Calculate PR statistics
@@ -21,8 +22,7 @@ const formatUsers = (users, allUsers) => {
         { opened: 0, closed: 0, merged: 0 }
     );
 
-    // Calculate user's rank
-    const rank = allUsers.findIndex((u) => u.points <= user.points) + 1;
+ 
 
     // Format the user
     return {
@@ -35,7 +35,7 @@ const formatUsers = (users, allUsers) => {
         closed: prStats.closed,
         merged: prStats.merged,
       },
-      rank,
+      rank: user.rank,
     };
   });
 }
@@ -49,6 +49,7 @@ const filterByUsers = async (req, res) => {
       githubId: true,
       points: true,
       avatar: true,
+      rank: true,
       _count: {
         select: {
           prs: true, // Count of all PRs
@@ -138,7 +139,7 @@ const filterByUsers = async (req, res) => {
       meta: {
         currentPage: parseInt(page),
         totalPages: Math.ceil(totalUsersWithFilter / limit) || 1,
-        totalUsers: totalUsersWithFilter,
+        totalUsers: totalUsersWithFilter
       }
     });
   } catch (error) {
