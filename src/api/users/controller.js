@@ -1,3 +1,4 @@
+const { use } = require('passport');
 const prisma = require('../../utils/PrismaClient');
 const axios = require('axios');
 
@@ -44,8 +45,6 @@ const getUserStats = async (req, res) => {
             },
         });
 
-        // Calculate the rank of the user
-        const rank = allUsers.findIndex(u => u.githubId === githubId) + 1;
 
         // Calculate statistics
         const stats = {
@@ -106,7 +105,7 @@ const getUserStats = async (req, res) => {
                 avatar: user.avatar,
                 email: user.email,
                 universityEmail: user.universityEmail,
-                rank: rank,
+                rank: user.rank,
                 followers: githubData.data.followers,
                 following: githubData.data.following,
                 bio: githubData.data.bio,
