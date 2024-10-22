@@ -1,4 +1,3 @@
-const { use } = require('passport');
 const prisma = require('../../utils/PrismaClient');
 const axios = require('axios');
 
@@ -32,16 +31,6 @@ const getUserStats = async (req, res) => {
         const githubData = await axios.get(`https://api.github.com/users/${githubId}`, {
             headers: {
                 Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-            },
-        });
-
-        // Fetch all users sorted by points in descending order
-        const allUsers = await prisma.users.findMany({
-            orderBy: {
-                points: 'desc',
-            },
-            select: {
-                githubId: true,
             },
         });
 
