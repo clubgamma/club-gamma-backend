@@ -30,6 +30,40 @@ class WebhookHandler {
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
     }
 
+    static async recalculateRanks(){
+        const users = await prisma.users.findMany({
+            orderBy: {
+              points: 'desc',
+            },
+            select: {
+              githubId: true,
+              points: true,
+            },
+          });
+        
+          let currentRank = 0;
+          let lastPoints = null;
+          let usersToUpdate = [];
+        
+          users.forEach((user, index) => {
+            if (lastPoints !== user.points) {
+              currentRank += 1;
+              lastPoints = user.points;
+            }
+            usersToUpdate.push({
+              githubId: user.githubId,
+              rank: currentRank,
+            });
+          });
+        
+          for (const user of usersToUpdate) {
+            await prisma.users.update({
+              where: { githubId: user.githubId },
+              data: { rank: user.rank },
+            });
+          }
+    }
+    
     static getHighestPriorityLabel(labels) {
         if (!labels?.length) return null;
         return labels.reduce((prev, current) => {
@@ -57,6 +91,7 @@ class WebhookHandler {
                 { timeout: 5000 }
             );
 
+            await this.recalculateRanks();
             return await prisma.users.create({
                 data: {
                     githubId,
@@ -102,7 +137,7 @@ class WebhookHandler {
                 }
             })
         ]);
-
+        await this.recalculateRanks();
         console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
     }
 
@@ -142,7 +177,7 @@ class WebhookHandler {
                 console.error(`Failed to send email to ${author.email}: ${error.message}`));
             console.log(`Sent email to ${author.email}`);
         }
-
+        await this.recalculateRanks();
         return points;
     }
 

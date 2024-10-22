@@ -23,6 +23,7 @@ model users {
   updatedAt       DateTime       @updatedAt
   points          Int            @default(0)
   prs             pullRequests[]
+  rank            Int?
 }
 
 model pullRequests {
