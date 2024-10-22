@@ -50,10 +50,12 @@ class WebhookHandler {
               currentRank += 1;
               lastPoints = user.points;
             }
-            usersToUpdate.push({
-              githubId: user.githubId,
-              rank: currentRank,
-            });
+            if(currentRank !== user.rank){
+                usersToUpdate.push({
+                  githubId: user.githubId,
+                  rank: currentRank,
+                });
+            }
           });
         
           for (const user of usersToUpdate) {
