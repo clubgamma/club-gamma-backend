@@ -93,7 +93,7 @@ class WebhookHandler {
                 { timeout: 5000 }
             );
 
-            await this.recalculateRanks();
+            await WebhookHandler.recalculateRanks();
             return await prisma.users.create({
                 data: {
                     githubId,
@@ -139,7 +139,7 @@ class WebhookHandler {
                 }
             })
         ]);
-        await this.recalculateRanks();
+        await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
         console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
     }
 
@@ -179,7 +179,7 @@ class WebhookHandler {
                 console.error(`Failed to send email to ${author.email}: ${error.message}`));
             console.log(`Sent email to ${author.email}`);
         }
-        await this.recalculateRanks();
+        await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
         return points;
     }
 
