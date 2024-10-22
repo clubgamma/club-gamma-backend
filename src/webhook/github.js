@@ -122,7 +122,11 @@ class WebhookHandler {
             prisma.users.update({
                 where: { githubId: author.githubId },
                 data: {
-                    points: { increment: points }
+                    points: { increment: points },
+                    mergedPRs: { increment: 1 },
+                    ...(author.closedPRs > 0) && { 
+                        closedPRs: { decrement: 1 } 
+                    }
                 }
             })
         ]);
@@ -157,52 +161,76 @@ class WebhookHandler {
         };
 
         if (action === 'opened' || action === 'reopened') {
-            await prisma.pullRequests.upsert({
-                where: {
-                    prNumber_repository: {
-                        prNumber: prData.number,
-                        repository
+            await prisma.$transaction([
+                prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prData.number,
+                            repository
+                        }
+                    },
+                    create: {
+                        ...baseData,
+                        state: PR_STATES.OPEN,
+                        openedAt: new Date(prData.created_at),
+                        points: 0
+                    },
+                    update: {
+                        ...baseData,
+                        state: PR_STATES.OPEN
                     }
-                },
-                create: {
-                    ...baseData,
-                    state: PR_STATES.OPEN,
-                    openedAt: new Date(prData.created_at),
-                    points: 0
-                },
-                update: {
-                    ...baseData,
-                    state: PR_STATES.OPEN
-                }
-            });
+                }),
+
+                // increment uesr PR count as per actions
+                prisma.users.update({
+                    where: { githubId: author.githubId },
+                    data: { 
+                        openPRs: { increment: 1 },
+                        ...(action === 'reopened' && author.closedPRs > 0 && { 
+                            closedPRs: { decrement: 1 } 
+                        })
+                    }
+                })
+            ]);
         } else if (action === 'closed') {
             const isMerged = prData.merged;
             const state = isMerged ? PR_STATES.MERGED : PR_STATES.CLOSED;
 
-            await prisma.pullRequests.upsert({
-                where: {
-                    prNumber_repository: {
-                        prNumber: prData.number,
-                        repository
+            await prisma.$transaction([
+                prisma.pullRequests.upsert({
+                    where: {
+                        prNumber_repository: {
+                            prNumber: prData.number,
+                            repository
+                        }
+                    },
+                    create: {
+                        ...baseData,
+                        state,
+                        openedAt: new Date(prData.created_at),
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null,
+                        points: 0
+                    },
+                    update: {
+                        ...baseData,
+                        state,
+                        closedAt: new Date(prData.closed_at),
+                        mergedAt: isMerged ? new Date(prData.merged_at) : null,
+                        mergedBy: isMerged ? prData.merged_by.login : null
                     }
-                },
-                create: {
-                    ...baseData,
-                    state,
-                    openedAt: new Date(prData.created_at),
-                    closedAt: new Date(prData.closed_at),
-                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                    mergedBy: isMerged ? prData.merged_by.login : null,
-                    points: 0
-                },
-                update: {
-                    ...baseData,
-                    state,
-                    closedAt: new Date(prData.closed_at),
-                    mergedAt: isMerged ? new Date(prData.merged_at) : null,
-                    mergedBy: isMerged ? prData.merged_by.login : null
-                }
-            });
+                }),
+                prisma.users.update({
+                    where: { githubId: author.githubId },
+                    data: {
+                        ...(author.openPRs > 0) && { 
+                            openPRs: { decrement: 1 } 
+                        },
+                        [isMerged ? mergedPRs : closedPRs]: { increment: 1 }
+                    }
+                })
+            ]);
 
             if (isMerged) {
                 await this.handlePrMerge(prData, repository, author);

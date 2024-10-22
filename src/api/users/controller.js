@@ -51,9 +51,9 @@ const getUserStats = async (req, res) => {
         const stats = {
             totalPRs: user.prs.length,
             points: user.points,
-            mergedPRs: user.prs.filter(pr => pr.state === 'merged').length,
-            openPRs: user.prs.filter(pr => pr.state === 'open').length,
-            closedPRs: user.prs.filter(pr => pr.state === 'closed').length,
+            mergedPRs: user.mergedPRs,
+            openPRs: user.openPRs,
+            closedPRs: user.closedPRs,
             repositoryBreakdown: {},
             prs: [],
         };
@@ -121,7 +121,14 @@ const getUserStats = async (req, res) => {
 };
 
 const repositories = [
-    'yogi-coder-boy/github'
+    'clubgamma/club-gamma-frontend',
+    'clubgamma/club-gamma-backend',
+    'clubgamma/Internet-Speed-Tester',
+    'clubgamma/Weather-Web-App-2024',
+    'clubgamma/Air-Quality-Index-Analysis',
+    'clubgamma/Summarize-papers',
+    'clubgamma/Sudoku',
+    'clubgamma/Ticket-Booking'
 ];
 const prPoints = {
     "documentation": 1,
@@ -217,6 +224,24 @@ const syncPullRequests = async (req, res) => {
         });
 
         await Promise.all(prSavePromises);
+
+        // Lastly update user PR count.
+        const userPRs = await prisma.pullRequests.findMany({
+            where: { authorId: githubId },
+          });
+
+        const openPRs = userPRs.filter(pr => pr.state === 'open').length;
+        const closedPRs = userPRs.filter(pr => pr.state === 'closed').length;
+        const mergedPRs = userPRs.filter(pr => pr.state === 'merged').length;
+
+        await prisma.users.update({
+            where: { githubId },
+            data: {
+                openPRs,
+                closedPRs,
+                mergedPRs,
+            },
+        });
 
         res.json({
             message: 'Synchronization complete',
