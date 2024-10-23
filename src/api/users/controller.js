@@ -10,10 +10,11 @@ const getUserStats = async (req, res) => {
     try {
         // Get user and their PRs
         const user = await prisma.users.findFirst({
-            where: { githubId: {
-                equals: githubId,
-                mode: 'insensitive'
-                } 
+            where: {
+                githubId: {
+                    equals: githubId,
+                    mode: 'insensitive'
+                }
             },
             include: {
                 prs: {
@@ -35,7 +36,6 @@ const getUserStats = async (req, res) => {
         });
 
 
-        // Calculate statistics
         const stats = {
             totalPRs: user.prs.length,
             points: user.points,
@@ -44,13 +44,22 @@ const getUserStats = async (req, res) => {
             closedPRs: user.prs.filter(pr => pr.state === 'closed').length,
             repositoryBreakdown: {},
             prs: [],
+            prCountPerDay: {}, // Store PR count per day here
         };
 
-        // Calculate repository breakdown
-        // keep recent PRs only
-        user.prs = user.prs.slice(0, 3);
-
         user.prs.forEach(pr => {
+            // Get the date (only YYYY-MM-DD) for grouping purposes
+            const date = new Date(pr.updatedAt).toISOString().split('T')[0];
+
+            // Initialize the prCountPerDay object if the date doesn't exist
+            if (!stats.prCountPerDay[date]) {
+                stats.prCountPerDay[date] = 0;
+            }
+
+            // Increment the count for that date
+            stats.prCountPerDay[date]++;
+
+            // Populate repository breakdown
             if (!stats.repositoryBreakdown[pr.repository]) {
                 stats.repositoryBreakdown[pr.repository] = {
                     total: 0,
@@ -58,6 +67,7 @@ const getUserStats = async (req, res) => {
                     points: 0,
                 };
             }
+
             stats.repositoryBreakdown[pr.repository].total++;
             stats.prs.push({
                 prNumber: pr.prNumber,
@@ -71,19 +81,6 @@ const getUserStats = async (req, res) => {
                 closedAt: pr.closedAt,
                 mergedBy: pr.mergedBy,
             });
-            // if (pr.state === 'merged') {
-            //     stats.repositoryBreakdown[pr.repository].merged++;
-            //     stats.repositoryBreakdown[pr.repository].points += pr.points;
-            //
-            //     // Collect merged PR details
-            //     stats.mergedPRDetails.push({
-            //         prNumber: pr.prNumber,
-            //         title: pr.title,
-            //         points: pr.points,
-            //         mergedAt: pr.mergedAt,
-            //         url: pr.url,
-            //     });
-            // }
         });
 
         // Respond with user stats and rank
@@ -98,7 +95,10 @@ const getUserStats = async (req, res) => {
                 followers: githubData.data.followers,
                 following: githubData.data.following,
                 bio: githubData.data.bio,
-                repositories: githubData.data.public_repos
+                repositories: githubData.data.public_repos,
+                company: githubData.data.company,
+                location: githubData.data.location,
+                blog: githubData.data.blog,
             },
             stats,
         });
