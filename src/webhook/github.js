@@ -30,42 +30,42 @@ class WebhookHandler {
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
     }
 
-    static async recalculateRanks(){
+    static async recalculateRanks() {
         const users = await prisma.users.findMany({
             orderBy: {
-              points: 'desc',
+                points: 'desc',
             },
             select: {
-              githubId: true,
-              points: true,
+                githubId: true,
+                points: true,
             },
-          });
-        
-          let currentRank = 0;
-          let lastPoints = null;
-          let usersToUpdate = [];
-        
-          users.forEach((user, index) => {
+        });
+
+        let currentRank = 0;
+        let lastPoints = null;
+        let usersToUpdate = [];
+
+        users.forEach((user, index) => {
             if (lastPoints !== user.points) {
-              currentRank += 1;
-              lastPoints = user.points;
+                currentRank += 1;
+                lastPoints = user.points;
             }
-            if(currentRank !== user.rank){
+            if (currentRank !== user.rank) {
                 usersToUpdate.push({
-                  githubId: user.githubId,
-                  rank: currentRank,
+                    githubId: user.githubId,
+                    rank: currentRank,
                 });
             }
-          });
-        
-          for (const user of usersToUpdate) {
+        });
+
+        for (const user of usersToUpdate) {
             await prisma.users.update({
-              where: { githubId: user.githubId },
-              data: { rank: user.rank },
+                where: { githubId: user.githubId },
+                data: { rank: user.rank },
             });
-          }
+        }
     }
-    
+
     static getHighestPriorityLabel(labels) {
         if (!labels?.length) return null;
         return labels.reduce((prev, current) => {
@@ -76,7 +76,7 @@ class WebhookHandler {
     }
 
     static calculatePoints(labels) {
-        return labels.reduce((total, label) => 
+        return labels.reduce((total, label) =>
             total + (PR_POINTS[label.name.toLowerCase()] || 0), 0);
     }
 
@@ -85,7 +85,7 @@ class WebhookHandler {
             const user = await prisma.users.findUnique({
                 where: { githubId }
             });
-            
+
             if (user) return user;
 
             const { data: userData } = await axios.get(
@@ -109,11 +109,10 @@ class WebhookHandler {
     }
 
     async handleLabelUpdate(prData, repository, author, existingPr) {
-        if (!existingPr || existingPr.state !== PR_STATES.MERGED) return;
+        if (!existingPr) return;
 
         const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(prData.labels);
-        const newPoints = highestPriorityLabel ? 
-            PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0 : 0;
+        const newPoints = highestPriorityLabel ? PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0 : 0;
 
         if (existingPr.points === newPoints) return;
 
@@ -129,18 +128,23 @@ class WebhookHandler {
                 },
                 data: {
                     label: highestPriorityLabel?.name || null,
-                    points: newPoints
+                    points: existingPr.state === PR_STATES ? newPoints : existingPr.points
                 }
-            }),
-            prisma.users.update({
-                where: { githubId: author.githubId },
-                data: {
-                    points: { increment: pointsDiff }
-                }
-            })
+            }), existingPr.state === PR_STATES.MERGED ?
+                prisma.users.update({
+                    where: { githubId: author.githubId },
+                    data: {
+                        points: { increment: pointsDiff }
+                    }
+                }) : null
         ]);
-        await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
-        console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
+        if (existingPr.state === PR_STATES.MERGED) {
+            await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
+            console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
+        }
+        else {
+            console.log(`Updated labels for PR ${prData.number} by ${pointsDiff}`);
+        }
     }
 
     async handlePrMerge(prData, repository, author) {
@@ -175,7 +179,7 @@ class WebhookHandler {
                 mergeDate: new Date(prData.merged_at).toDateString(),
                 reviewerName: prData.merged_by.login,
                 leaderboardLink: "https://clubgamma.vercel.app/leaderboard"
-            }).catch(error => 
+            }).catch(error =>
                 console.error(`Failed to send email to ${author.email}: ${error.message}`));
             console.log(`Sent email to ${author.email}`);
         }
@@ -250,7 +254,7 @@ class WebhookHandler {
 
 module.exports = async (req, res) => {
     const handler = new WebhookHandler(process.env.WEBHOOK_SECRET);
-    
+
     try {
         // Validate headers
         const signature = req.headers['x-hub-signature-256'];
@@ -271,10 +275,10 @@ module.exports = async (req, res) => {
         }
 
         const { action, pull_request: prData, repository } = req.body;
-        
+
         // Skip if not targeting main branch
         if (prData.base.ref !== 'main') {
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: 'PR not targeting main branch'
             });
         }
@@ -282,7 +286,7 @@ module.exports = async (req, res) => {
         // Get or create user
         const author = await WebhookHandler.getOrCreateUser(prData.user.login);
         if (!author) {
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Failed to get or create user'
             });
         }
@@ -297,33 +301,33 @@ module.exports = async (req, res) => {
                     }
                 }
             });
-            
+
             await handler.handleLabelUpdate(
-                prData, 
-                repository.full_name, 
-                author, 
+                prData,
+                repository.full_name,
+                author,
                 existingPr
             );
-        } 
+        }
         // Handle PR state changes
         else if (['opened', 'closed', 'reopened'].includes(action)) {
             await handler.handlePrStateChange(
-                action, 
-                prData, 
-                repository.full_name, 
+                action,
+                prData,
+                repository.full_name,
                 author
             );
         }
 
-        return res.status(200).json({ 
-            message: 'Webhook processed successfully' 
+        return res.status(200).json({
+            message: 'Webhook processed successfully'
         });
 
     } catch (error) {
         console.error('Webhook processing error:', error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             error: 'Internal server error',
-            message: error.message 
+            message: error.message
         });
     }
 };
