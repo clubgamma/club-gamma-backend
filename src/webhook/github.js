@@ -110,15 +110,15 @@ class WebhookHandler {
 
     async handleLabelUpdate(prData, repository, author, existingPr) {
         if (!existingPr) return;
-
+    
         const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(prData.labels);
         const newPoints = highestPriorityLabel ? PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0 : 0;
-
+    
         if (existingPr.points === newPoints) return;
-
+    
         const pointsDiff = newPoints - existingPr.points;
-
-        await prisma.$transaction([
+    
+        const transactionActions = [
             prisma.pullRequests.update({
                 where: {
                     prNumber_repository: {
@@ -130,23 +130,31 @@ class WebhookHandler {
                     label: highestPriorityLabel?.name || null,
                     points: existingPr.state === PR_STATES ? newPoints : existingPr.points
                 }
-            }), existingPr.state === PR_STATES.MERGED ?
+            })
+        ];
+    
+        // Only add the user update to the transaction if the PR is merged
+        if (existingPr.state === PR_STATES.MERGED) {
+            transactionActions.push(
                 prisma.users.update({
                     where: { githubId: author.githubId },
                     data: {
                         points: { increment: pointsDiff }
                     }
-                }) : null
-        ]);
+                })
+            );
+        }
+    
+        await prisma.$transaction(transactionActions);
+    
         if (existingPr.state === PR_STATES.MERGED) {
             await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
             console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
-        }
-        else {
-            console.log(`Updated labels for PR ${prData.number} by ${pointsDiff}`);
+        } else {
+            console.log(`Updated labels for PR ${prData.number}`);
         }
     }
-
+    
     async handlePrMerge(prData, repository, author) {
         const points = WebhookHandler.calculatePoints(prData.labels);
 
