@@ -80,6 +80,7 @@ const getUserStats = async (req, res) => {
                 mergedAt: pr.mergedAt,
                 closedAt: pr.closedAt,
                 mergedBy: pr.mergedBy,
+                label: pr.label
             });
         });
 
