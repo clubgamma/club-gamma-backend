@@ -109,7 +109,6 @@ const getUserStats = async (req, res) => {
 };
 
 const repositories = [
-    'yogi-coder-boy/github',
     'clubgamma/club-gamma-frontend',
     'clubgamma/club-gamma-backend',
     'clubgamma/Internet-Speed-Tester',
