@@ -4,6 +4,6 @@ const { rateLimiting , verifyJWT } = require('../../utils/Middlewares');
 const router = Router();
 
 router.get('/stats/:githubId', controller.getUserStats);
-router.post('/sync-prs', verifyJWT , rateLimiting  ,controller.syncPullRequests);
+router.post('/sync-prs', verifyJWT , rateLimiting, controller.syncPullRequests);
 
 module.exports = router;

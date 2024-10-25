@@ -134,6 +134,10 @@ const syncPullRequests = async (req, res) => {
         return res.status(400).json({ error: 'Missing githubId or invalid repositories' });
     }
 
+    if(req.user.githubId !== githubId) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     try {
         // Fetch user from database
         const user = await prisma.users.findUnique({
