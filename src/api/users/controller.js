@@ -255,7 +255,67 @@ const syncPullRequests = async (req, res) => {
     }
 };
 
+const projectWiseContribution = async (req,res)=>{
+  
+    const { githubId } = req.params;
+    
+    // Check if GitHub ID is provided
+    if (!githubId) {
+        return res.status(400).json({ error: "GitHub ID is required" });
+    }
+    
+    try {
+        // Fetch user by GitHub ID and include their pull requests
+        const user = await prisma.users.findUnique({
+            where: { githubId },
+            select: {
+                githubId: true,
+                name: true,
+                points: true,
+                rank: true,
+                prs: {
+                    select: {
+                        repository: true,
+                        points: true,
+                    },
+                },
+            },
+        });
+    
+        // Check if user exists
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+    
+        // Calculate contributions by repository
+        const contributions = user.prs.reduce((acc, pr) => {
+            if (!acc[pr.repository]) {
+                acc[pr.repository] = { projectName: pr.repository, prCount: 0, totalPoints: 0 };
+            }
+            acc[pr.repository].prCount += 1;
+            acc[pr.repository].totalPoints += pr.points;
+            return acc;
+        }, {});
+    
+        // Convert contributions object to an array and sort by PR count in descending order
+        const contributionsArray = Object.values(contributions).sort((a, b) => b.prCount - a.prCount);
+    
+        // Respond with user data
+        res.status(200).json({
+            githubId: user.githubId,
+            name: user.name,
+            totalPoints: user.points,
+            rank: user.rank,
+            contributions: contributionsArray,
+        });
+    } catch (error) {
+        console.error("Error fetching user contributions:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+}
+
 module.exports = {
     getUserStats,
-    syncPullRequests
+    syncPullRequests,
+    projectWiseContribution
 }
