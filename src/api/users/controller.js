@@ -255,7 +255,65 @@ const syncPullRequests = async (req, res) => {
     }
 };
 
+
+const getProjectWiseContributions = async (req, res) => {
+    const { githubId } = req.params;
+
+    if (!githubId) {
+        return res.status(404).json({ error: 'Github ID not found' });
+    }
+
+    try {
+        // Fetch contributions for each project
+        const contributors = await prisma.pullRequests.groupBy({
+            by: ['repository'],
+            _count: {
+                _all: true,
+            },
+            _sum: {
+                points: true,
+            },
+            where: {
+                authorId: githubId,
+            },
+        });
+
+        // Format the response
+        const projectContributions = contributors.map(contribution => ({
+            projectName: contribution.repository.split('/')[1], // Assuming repository is in format 'clubgamma/project-name'
+            prCount: contribution._count._all,
+            totalPoints: contribution._sum.points || 0,
+        }));
+
+        // Sort projects by PR count in descending order
+        projectContributions.sort((a, b) => b.prCount - a.prCount);
+
+        // Fetch user details
+        const user = await prisma.users.findUnique({
+            where: { githubId },
+            select: { name: true, points: true, rank: true },
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.status(200).json({
+            githubId,
+            name: user.name,
+            totalPoints: user.points,
+            rank: user.rank,
+            contributions: projectContributions
+        });
+    } catch (error) {
+        console.error('Error fetching project-wise contributions:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
 module.exports = {
     getUserStats,
-    syncPullRequests
+    syncPullRequests,
+    getProjectWiseContributions
 }
