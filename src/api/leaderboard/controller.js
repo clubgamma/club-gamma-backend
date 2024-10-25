@@ -29,7 +29,6 @@ const formatUsers = (users, allUsers) => {
       name: user.name,
       githubId: user.githubId,
       points: user.points,
-      avatar: user.avatar,
       prs: {
         opened: prStats.opened,
         closed: prStats.closed,
@@ -48,7 +47,6 @@ const filterByUsers = async (req, res) => {
       name: true,
       githubId: true,
       points: true,
-      avatar: true,
       rank: true,
       _count: {
         select: {

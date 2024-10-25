@@ -13,7 +13,6 @@ const getContributors = async (req, res) => {
           select: {
             name: true,
             githubId: true,
-            avatar: true,
           },
         },
         points: true,
@@ -36,7 +35,6 @@ const getContributors = async (req, res) => {
           name: curr.author.name,
           githubId: curr.author.githubId,
           profileUrl: `https://github.com/${curr.author.githubId}`,
-          avatarUrl: curr.author.avatar,
           prsCount: 1,
           totalPoints: curr.points,
         };

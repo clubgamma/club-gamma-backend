@@ -18,7 +18,6 @@ model users {
   name            String
   email           String?        @unique
   universityEmail String?
-  avatar          String
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   points          Int            @default(0)
@@ -33,7 +32,6 @@ model pullRequests {
   title      String // The title of the PR
   state      String // The state of the PR: 'open', 'closed', 'merged'
   mergedBy   String? // The GitHub username of the person who merged the PR (nullable)
-  url        String // The URL of the PR
   openedAt   DateTime // Timestamp of when the PR was opened
   closedAt   DateTime? // Timestamp of when the PR was closed (nullable)
   mergedAt   DateTime? // Timestamp of when the PR was merged (nullable)

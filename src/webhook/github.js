@@ -99,7 +99,6 @@ class WebhookHandler {
                     githubId,
                     name: userData.name || userData.login,
                     email: userData.email,
-                    avatar: userData.avatar_url,
                 }
             });
         } catch (error) {
@@ -200,7 +199,6 @@ class WebhookHandler {
             prNumber: prData.number,
             repository,
             title: prData.title,
-            url: prData.html_url,
             authorId: author.githubId,
             label: WebhookHandler.getHighestPriorityLabel(prData.labels)?.name
         };

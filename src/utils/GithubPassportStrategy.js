@@ -45,7 +45,6 @@ passport.use(new GitHubStrategy({
                         githubId: profile.username,
                         email: primaryEmail,
                         universityEmail: universityEmail,
-                        avatar: profile.photos[0]?.value,
                         name: profile.displayName,
                     }
                 });

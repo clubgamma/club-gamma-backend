@@ -109,7 +109,6 @@ const getAccessToken = async (req, res, next) => {
                         githubId: ghUser.login,
                         email: primaryEmail,
                         universityEmail: universityEmail,
-                        avatar: ghUser.avatar_url,
                         name: ghUser.name?ghUser.name:ghUser.login,
                     },
                     update: {

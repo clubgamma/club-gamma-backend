@@ -75,7 +75,6 @@ const getUserStats = async (req, res) => {
                 title: pr.title,
                 points: pr.points,
                 state: pr.state,
-                url: pr.url,
                 repository: pr.repository,
                 openedAt: pr.openedAt,
                 mergedAt: pr.mergedAt,
@@ -90,7 +89,6 @@ const getUserStats = async (req, res) => {
             user: {
                 githubId: user.githubId,
                 name: user.name,
-                avatar: user.avatar,
                 email: user.email,
                 universityEmail: user.universityEmail,
                 rank: user.rank,
@@ -201,7 +199,6 @@ const syncPullRequests = async (req, res) => {
                     repository: repo,
                     title: pr.title,
                     state: pr.merged ? 'merged' : pr.state,
-                    url: pr.html_url,
                     openedAt: new Date(pr.created_at),
                     mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
                     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
