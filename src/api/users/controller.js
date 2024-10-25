@@ -20,7 +20,7 @@ const getUserStats = async (req, res) => {
             include: {
                 prs: {
                     orderBy: {
-                        updatedAt: 'desc', // Order by the creation date in descending order
+                        mergedAt: 'desc', // Order by the creation date in descending order
                     },
                 },
             },
