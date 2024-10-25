@@ -62,6 +62,13 @@ const filterByUsers = async (req, res) => {
         },
       },
     },
+    where: {
+      prs: {
+        some: {
+          state: 'merged', // Ensure the user has at least one merged PR
+        },
+      },
+    },
     orderBy: {
       points: "desc",
     }
