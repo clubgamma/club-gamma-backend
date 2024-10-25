@@ -10,6 +10,7 @@ const PR_POINTS = {
     "level 1": 3,
     "level 2": 5,
     "level 3": 8,
+    "level 4": 15
 };
 
 const PR_STATES = {
