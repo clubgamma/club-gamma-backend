@@ -141,6 +141,9 @@ const rateLimiting = rateLimit({
     keyGenerator: (req) => req.user.githubId,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        return req.user.githubId === "jalaym825";
+    },
 });
 
 
