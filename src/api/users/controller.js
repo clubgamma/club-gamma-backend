@@ -44,7 +44,7 @@ const getUserStats = async (req, res) => {
             openPRs: user.prs.filter(pr => pr.state === 'open').length,
             closedPRs: user.prs.filter(pr => pr.state === 'closed').length,
             repositoryBreakdown: {},
-            prs: [],
+            prs: user.prs,
             prCountPerDay: {}, // Store PR count per day here
         };
 
@@ -70,18 +70,6 @@ const getUserStats = async (req, res) => {
             }
 
             stats.repositoryBreakdown[pr.repository].total++;
-            stats.prs.push({
-                prNumber: pr.prNumber,
-                title: pr.title,
-                points: pr.points,
-                state: pr.state,
-                repository: pr.repository,
-                openedAt: pr.openedAt,
-                mergedAt: pr.mergedAt,
-                closedAt: pr.closedAt,
-                mergedBy: pr.mergedBy,
-                label: pr.label
-            });
         });
 
         // Respond with user stats and rank
