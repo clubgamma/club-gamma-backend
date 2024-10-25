@@ -50,7 +50,7 @@ const getUserStats = async (req, res) => {
 
         user.prs.forEach(pr => {
             // Get the date (only YYYY-MM-DD) for grouping purposes
-            const date = new Date(pr.updatedAt).toISOString().split('T')[0];
+            const date = new Date(pr.mergedAt).toISOString().split('T')[0];
 
             // Initialize the prCountPerDay object if the date doesn't exist
             if (!stats.prCountPerDay[date]) {
