@@ -132,7 +132,7 @@ const verificationMailSent = async (req, res, next) => {
 
 const rateLimiting = rateLimit({
     windowMs: 2 * 60 * 1000,
-    max: 1,
+    max: 10,
     message: {
         path: "/middleWare/rateLimitExceeded",
         statusCode: 429,

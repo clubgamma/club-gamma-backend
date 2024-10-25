@@ -1,5 +1,6 @@
 const prisma = require('../../utils/PrismaClient');
 const axios = require('axios');
+const { WebhookHandler } = require('../../webhook/github');
 
 const getUserStats = async (req, res) => {
     let { githubId } = req.params;
@@ -110,7 +111,15 @@ const getUserStats = async (req, res) => {
 };
 
 const repositories = [
-    'yogi-coder-boy/github'
+    'yogi-coder-boy/github',
+    'clubgamma/club-gamma-frontend',
+    'clubgamma/club-gamma-backend',
+    'clubgamma/Internet-Speed-Tester',
+    'clubgamma/Weather-Web-App-2024',
+    'clubgamma/Air-Quality-Index-Analysis',
+    'clubgamma/Summarize-papers',
+    'clubgamma/Sudoku',
+    'clubgamma/Ticket-Booking'
 ];
 const prPoints = {
     "documentation": 1,
@@ -176,7 +185,16 @@ const syncPullRequests = async (req, res) => {
         const prSavePromises = reposDetailedPRs.flatMap(({ repo, prs }) => {
             prs = prs.filter(pr => pr.user.login === githubId);
             return prs.map(pr => {
-                const points = pr.labels.map(label => prPoints[label.name] || 0).reduce((a, b) => a + b, 0);
+
+                // Find the highest priority label (assuming higher points mean higher priority)
+                const highestPriorityLabel = pr.labels
+                .reduce((highest, current) => {
+                    const currentPoints = prPoints[current.name] || 0;
+                    const highestPoints = prPoints[highest?.name] || 0;
+                    return currentPoints > highestPoints ? current : highest;
+                }, null)?.name || null;
+
+                const points = prPoints[highestPriorityLabel] || 0;
 
                 const prData = {
                     prNumber: pr.number,
@@ -190,29 +208,57 @@ const syncPullRequests = async (req, res) => {
                     mergedBy: pr.merged_by?.login || null,
                     points: points,
                     authorId: pr.user.login,
+                    label: highestPriorityLabel,
                 };
-
-                return prisma.pullRequests.upsert({
-                    where: {
-                        prNumber_repository: {
-                            prNumber: pr.number,
-                            repository: repo,
+        
+                return prisma.$transaction(tx => {
+                    return tx.pullRequests.upsert({
+                        where: {
+                            prNumber_repository: {
+                                prNumber: pr.number,
+                                repository: repo,
+                            },
                         },
-                    },
-                    create: prData,
-                    update: prData,
+                        create: prData,
+                        update: prData,
+                    });
                 });
             });
         });
-
+        
+        // Wait for all transactions to complete
         await Promise.all(prSavePromises);
 
+        // update user points
+        const pointsSum = await prisma.pullRequests.aggregate({
+            _sum: {
+                points: true
+            },
+            where: {
+                authorId: githubId,
+            }
+        });
+        
+        const points = pointsSum._sum.points || 0;
+        
+        await prisma.users.update({
+            where: {
+                githubId,
+            },
+            data: {
+                points,
+            },
+        });
+
+        WebhookHandler.recalculateRanks();
+        
         res.json({
             message: 'Synchronization complete',
             syncedRepos: reposDetailedPRs.map(r => ({
                 name: r.repo,
                 pullCount: r.prs.length
-            }))
+            })),
+            prCount: prSavePromises.length,
         });
     } catch (error) {
         console.error('Error syncing pull requests:', error);

@@ -260,7 +260,7 @@ class WebhookHandler {
     }
 }
 
-module.exports = async (req, res) => {
+const webhookController = async (req, res) => {
     const handler = new WebhookHandler(process.env.WEBHOOK_SECRET);
 
     try {
@@ -339,3 +339,8 @@ module.exports = async (req, res) => {
         });
     }
 };
+
+module.exports = {
+    webhookController,
+    WebhookHandler
+}

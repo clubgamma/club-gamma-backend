@@ -6,7 +6,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const passport = require('./utils/GithubPassportStrategy');
 const session = require('express-session');
-const githubWebhookHandler = require('./webhook/github');
+const {webhookController} = require('./webhook/github');
 const logger = require('./utils/Logger');
 
 // Initialize prisma client
@@ -26,7 +26,7 @@ app.use('/webhook', express.json({
     verify: (req, res, buf) => {
         req.rawBody = buf;
     }
-}), githubWebhookHandler);
+}), webhookController);
 
 app.use(express.json());
 app.use(helmet());
