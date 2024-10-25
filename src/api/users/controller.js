@@ -176,11 +176,12 @@ const syncPullRequests = async (req, res) => {
             return prs.map(pr => {
 
                 // Find the highest priority label (assuming higher points mean higher priority)
+                    
                 const highestPriorityLabel = pr.labels
                 .reduce((highest, current) => {
-                    const currentPoints = prPoints[current.name] || 0;
-                    const highestPoints = prPoints[highest?.name] || 0;
-                    return currentPoints > highestPoints ? current : highest;
+                    const currentPoints = prPoints[current.name.toLowerCase()] || 0;
+                    const highestPoints = prPoints[highest?.name.toLowerCase()] || 0;
+                    return currentPoints > highestPoints ? current.toLowerCase() : highest.toLowerCase();
                 }, null)?.name || null;
 
                 const points = prPoints[highestPriorityLabel] || 0;
