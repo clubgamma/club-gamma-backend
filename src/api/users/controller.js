@@ -35,7 +35,33 @@ const getUserStats = async (req, res) => {
                 Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
             },
         });
+        
+        // Fetch contributions for each project
+        const contributors = await prisma.pullRequests.groupBy({
+            by: ['repository'],
+            _count: {
+                _all: true,
+            },
+            _sum: {
+                points: true,
+            },
+            where: {
+                authorId: {
+                    equals: githubId,
+                    mode: 'insensitive', // Make the comparison case insensitive
+                },
+            },
+        });
 
+        // Format the response
+        const projectContributions = contributors.map(contribution => ({
+            projectName: contribution.repository.split('/')[1], // Assuming repository is in format 'clubgamma/project-name'
+            prCount: contribution._count._all,
+            totalPoints: contribution._sum.points || 0,
+        }));
+
+        // Sort projects by PR count in descending order
+        projectContributions.sort((a, b) => b.prCount - a.prCount);
 
         const stats = {
             totalPRs: user.prs.length,
@@ -43,7 +69,6 @@ const getUserStats = async (req, res) => {
             mergedPRs: user.prs.filter(pr => pr.state === 'merged').length,
             openPRs: user.prs.filter(pr => pr.state === 'open').length,
             closedPRs: user.prs.filter(pr => pr.state === 'closed').length,
-            repositoryBreakdown: {},
             prs: user.prs,
             prCountPerDay: {}, // Store PR count per day here
         };
@@ -60,16 +85,6 @@ const getUserStats = async (req, res) => {
             // Increment the count for that date
             stats.prCountPerDay[date]++;
 
-            // Populate repository breakdown
-            if (!stats.repositoryBreakdown[pr.repository]) {
-                stats.repositoryBreakdown[pr.repository] = {
-                    total: 0,
-                    merged: 0,
-                    points: 0,
-                };
-            }
-
-            stats.repositoryBreakdown[pr.repository].total++;
         });
 
         // Respond with user stats and rank
@@ -89,6 +104,7 @@ const getUserStats = async (req, res) => {
                 blog: githubData.data.blog,
             },
             stats,
+            projectContributions,
         });
     } catch (error) {
         console.error('Error fetching user stats:', error);
@@ -254,6 +270,7 @@ const syncPullRequests = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 module.exports = {
     getUserStats,
