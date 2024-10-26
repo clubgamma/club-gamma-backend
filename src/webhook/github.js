@@ -69,11 +69,13 @@ class WebhookHandler {
 
     static getHighestPriorityLabel(labels) {
         if (!labels?.length) return null;
-        return labels.reduce((prev, current) => {
+        const label =  labels.reduce((prev, current) => {
             const prevPoints = PR_POINTS[prev.name.toLowerCase()] || 0;
             const currentPoints = PR_POINTS[current.name.toLowerCase()] || 0;
             return currentPoints > prevPoints ? current : prev;
-        }, labels[0]);
+        }, labels[0])
+        // if labels is not from PR_POINTS, return null
+        return PR_POINTS[label.name.toLowerCase()] ? label : null;
     }
 
     static calculatePoints(labels) {
@@ -117,8 +119,6 @@ class WebhookHandler {
 
         if (existingPr.points === newPoints) return;
 
-        const pointsDiff = newPoints - existingPr.points;
-
         await prisma.pullRequests.update({
             where: {
                 prNumber_repository: {
@@ -148,7 +148,7 @@ class WebhookHandler {
 
         if (existingPr.state === PR_STATES.MERGED) {
             await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
-            console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
+            console.log(`Updated points for user ${author.name} by ${newPoints}`);
         } else {
             console.log(`Updated labels for PR ${prData.number}`);
         }
