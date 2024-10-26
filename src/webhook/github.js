@@ -77,8 +77,9 @@ class WebhookHandler {
     }
 
     static calculatePoints(labels) {
-        return labels.reduce((total, label) =>
-            total + (PR_POINTS[label.name.toLowerCase()] || 0), 0);
+        if (!labels?.length) return 0;
+        const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(labels);
+        return PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0;
     }
 
     static async getOrCreateUser(githubId) {
