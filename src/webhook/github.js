@@ -128,7 +128,7 @@ class WebhookHandler {
                 },
                 data: {
                     label: highestPriorityLabel?.name || null,
-                    points: existingPr.state === PR_STATES ? newPoints : existingPr.points
+                    points: existingPr.state === PR_STATES.MERGED ? newPoints : existingPr.points
                 }
             })
         ];
