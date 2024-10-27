@@ -50,6 +50,18 @@ class Mailer {
         }
     }
 
+    async sendThankYouMail(emails) {
+        try {
+            const htmlContent = await this.renderEjsTemplate('thank-you', {});
+    
+            const body = { html: htmlContent };
+            await this.sendMail(emails, 'Thank You for Contributing!', body);
+        } catch (error) {
+            this.logError('sendThankYouMail', error);
+        }
+    }
+    
+
     async renderEjsTemplate(templateName, data) {
         return new Promise((resolve, reject) => {
             const templatePath = path.join(`src/templates/${templateName}.ejs`);
