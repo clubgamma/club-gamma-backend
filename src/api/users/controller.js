@@ -37,30 +37,27 @@ const getUserStats = async (req, res) => {
         });
         
         // Fetch contributions for each project
-        const contributors = await prisma.pullRequests.groupBy({
-            by: ['repository'],
-            _count: {
-                _all: true,
-            },
-            _sum: {
-                points: true,
-            },
-            where: {
-                authorId: {
-                    equals: githubId,
-                    mode: 'insensitive', // Make the comparison case insensitive
-                },
-            },
+        let projectContributions = new Map();
+        user.prs.forEach(pr => {
+            const projectName = pr.repository.split('/')[1];
+            const project = projectContributions.get(projectName) || {
+                prCount: 0,
+                totalPoints: 0,
+                opened: 0,
+                closed: 0,
+                merged: 0,
+            };
+            project.opened = pr.state === 'open' ? project.opened + 1 : project.opened;
+            project.closed = pr.state === 'closed' ? project.closed + 1 : project.closed;
+            project.merged = pr.state === 'merged' ? project.merged + 1 : project.merged;
+            project.prCount++;
+            project.totalPoints += pr.points;
+            projectContributions.set(projectName, project);
         });
 
-        // Format the response
-        const projectContributions = contributors.map(contribution => ({
-            projectName: contribution.repository.split('/')[1], // Assuming repository is in format 'clubgamma/project-name'
-            prCount: contribution._count._all,
-            totalPoints: contribution._sum.points || 0,
-        }));
+        // convert map to array
+        projectContributions = Array.from(projectContributions, ([name, data]) => ({ projectName: name, ...data }));
 
-        // Sort projects by PR count in descending order
         projectContributions.sort((a, b) => b.prCount - a.prCount);
 
         const stats = {
