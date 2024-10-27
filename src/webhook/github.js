@@ -69,16 +69,19 @@ class WebhookHandler {
 
     static getHighestPriorityLabel(labels) {
         if (!labels?.length) return null;
-        return labels.reduce((prev, current) => {
+        const label =  labels.reduce((prev, current) => {
             const prevPoints = PR_POINTS[prev.name.toLowerCase()] || 0;
             const currentPoints = PR_POINTS[current.name.toLowerCase()] || 0;
             return currentPoints > prevPoints ? current : prev;
-        }, labels[0]);
+        }, labels[0])
+        // if labels is not from PR_POINTS, return null
+        return PR_POINTS[label.name.toLowerCase()] ? label : null;
     }
 
     static calculatePoints(labels) {
-        return labels.reduce((total, label) =>
-            total + (PR_POINTS[label.name.toLowerCase()] || 0), 0);
+        if (!labels?.length) return 0;
+        const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(labels);
+        return PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0;
     }
 
     static async getOrCreateUser(githubId) {
@@ -110,51 +113,47 @@ class WebhookHandler {
 
     async handleLabelUpdate(prData, repository, author, existingPr) {
         if (!existingPr) return;
-    
+
         const highestPriorityLabel = WebhookHandler.getHighestPriorityLabel(prData.labels);
         const newPoints = highestPriorityLabel ? PR_POINTS[highestPriorityLabel.name.toLowerCase()] || 0 : 0;
-    
+
         if (existingPr.points === newPoints) return;
-    
-        const pointsDiff = newPoints - existingPr.points;
-    
-        const transactionActions = [
-            prisma.pullRequests.update({
-                where: {
-                    prNumber_repository: {
-                        prNumber: prData.number,
-                        repository: repository
-                    }
-                },
-                data: {
-                    label: highestPriorityLabel?.name || null,
-                    points: existingPr.state === PR_STATES ? newPoints : existingPr.points
+
+        await prisma.pullRequests.update({
+            where: {
+                prNumber_repository: {
+                    prNumber: prData.number,
+                    repository: repository
                 }
-            })
-        ];
-    
+            },
+            data: {
+                label: highestPriorityLabel?.name || null,
+                points: existingPr.state === PR_STATES.MERGED ? newPoints : existingPr.points
+            }
+        })
+
         // Only add the user update to the transaction if the PR is merged
         if (existingPr.state === PR_STATES.MERGED) {
-            transactionActions.push(
-                prisma.users.update({
-                    where: { githubId: author.githubId },
-                    data: {
-                        points: { increment: pointsDiff }
-                    }
-                })
-            );
+            const totalPrPoints = await prisma.pullRequests.aggregate({
+                where: { authorId: author.githubId },
+                _sum: { points: true }
+            });
+            await prisma.users.update({
+                where: { githubId: author.githubId },
+                data: {
+                    points: totalPrPoints._sum.points
+                }
+            })
         }
-    
-        await prisma.$transaction(transactionActions);
-    
+
         if (existingPr.state === PR_STATES.MERGED) {
             await WebhookHandler.recalculateRanks(); // Fixed: Using static method call
-            console.log(`Updated points for user ${author.name} by ${pointsDiff}`);
+            console.log(`Updated points for user ${author.name} by ${newPoints}`);
         } else {
             console.log(`Updated labels for PR ${prData.number}`);
         }
     }
-    
+
     async handlePrMerge(prData, repository, author) {
         const points = WebhookHandler.calculatePoints(prData.labels);
 

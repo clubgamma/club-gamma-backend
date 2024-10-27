@@ -35,7 +35,30 @@ const getUserStats = async (req, res) => {
                 Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
             },
         });
+        
+        // Fetch contributions for each project
+        let projectContributions = new Map();
+        user.prs.forEach(pr => {
+            const projectName = pr.repository.split('/')[1];
+            const project = projectContributions.get(projectName) || {
+                prCount: 0,
+                totalPoints: 0,
+                opened: 0,
+                closed: 0,
+                merged: 0,
+            };
+            project.opened = pr.state === 'open' ? project.opened + 1 : project.opened;
+            project.closed = pr.state === 'closed' ? project.closed + 1 : project.closed;
+            project.merged = pr.state === 'merged' ? project.merged + 1 : project.merged;
+            project.prCount++;
+            project.totalPoints += pr.points;
+            projectContributions.set(projectName, project);
+        });
 
+        // convert map to array
+        projectContributions = Array.from(projectContributions, ([name, data]) => ({ projectName: name, ...data }));
+
+        projectContributions.sort((a, b) => b.prCount - a.prCount);
 
         const stats = {
             totalPRs: user.prs.length,
@@ -43,7 +66,6 @@ const getUserStats = async (req, res) => {
             mergedPRs: user.prs.filter(pr => pr.state === 'merged').length,
             openPRs: user.prs.filter(pr => pr.state === 'open').length,
             closedPRs: user.prs.filter(pr => pr.state === 'closed').length,
-            repositoryBreakdown: {},
             prs: user.prs,
             prCountPerDay: {}, // Store PR count per day here
         };
@@ -60,16 +82,6 @@ const getUserStats = async (req, res) => {
             // Increment the count for that date
             stats.prCountPerDay[date]++;
 
-            // Populate repository breakdown
-            if (!stats.repositoryBreakdown[pr.repository]) {
-                stats.repositoryBreakdown[pr.repository] = {
-                    total: 0,
-                    merged: 0,
-                    points: 0,
-                };
-            }
-
-            stats.repositoryBreakdown[pr.repository].total++;
         });
 
         // Respond with user stats and rank
@@ -89,6 +101,7 @@ const getUserStats = async (req, res) => {
                 blog: githubData.data.blog,
             },
             stats,
+            projectContributions,
         });
     } catch (error) {
         console.error('Error fetching user stats:', error);
@@ -255,67 +268,8 @@ const syncPullRequests = async (req, res) => {
     }
 };
 
-const projectWiseContribution = async (req,res)=>{
-  
-    const { githubId } = req.params;
-    
-    // Check if GitHub ID is provided
-    if (!githubId) {
-        return res.status(400).json({ error: "GitHub ID is required" });
-    }
-    
-    try {
-        // Fetch user by GitHub ID and include their pull requests
-        const user = await prisma.users.findUnique({
-            where: { githubId },
-            select: {
-                githubId: true,
-                name: true,
-                points: true,
-                rank: true,
-                prs: {
-                    select: {
-                        repository: true,
-                        points: true,
-                    },
-                },
-            },
-        });
-    
-        // Check if user exists
-        if (!user) {
-            return res.status(404).json({ error: "User not found" });
-        }
-    
-        // Calculate contributions by repository
-        const contributions = user.prs.reduce((acc, pr) => {
-            if (!acc[pr.repository]) {
-                acc[pr.repository] = { projectName: pr.repository, prCount: 0, totalPoints: 0 };
-            }
-            acc[pr.repository].prCount += 1;
-            acc[pr.repository].totalPoints += pr.points;
-            return acc;
-        }, {});
-    
-        // Convert contributions object to an array and sort by PR count in descending order
-        const contributionsArray = Object.values(contributions).sort((a, b) => b.prCount - a.prCount);
-    
-        // Respond with user data
-        res.status(200).json({
-            githubId: user.githubId,
-            name: user.name,
-            totalPoints: user.points,
-            rank: user.rank,
-            contributions: contributionsArray,
-        });
-    } catch (error) {
-        console.error("Error fetching user contributions:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
 
 module.exports = {
     getUserStats,
     syncPullRequests,
-    projectWiseContribution
 }
