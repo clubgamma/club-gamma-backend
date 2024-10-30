@@ -271,5 +271,5 @@ const syncPullRequests = async (req, res) => {
 
 module.exports = {
     getUserStats,
-    syncPullRequests
+    syncPullRequests,
 }
