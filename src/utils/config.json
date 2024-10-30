@@ -1,0 +1,7 @@
+{
+    "owner": "test@gmail.com",
+    "maintainers": [
+        "maintainer1@gmail.com",
+        "maintainer2@gmail.com"
+    ]
+}
