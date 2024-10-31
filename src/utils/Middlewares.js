@@ -158,10 +158,18 @@ const authorizeOwner = (req, res, next) => {
 };
 
 const authorizeMaintainer = (req, res, next) => {
-    const userEmail = req.user.email; 
-    if (userEmail === config.owner || config.maintainers.includes(userEmail)) {
-        next();
-    } else {
+    const userEmail = req.user.email;
+
+    if (userEmail === config.owner) {
+        return next();
+    } 
+
+    const { projectId } = req.params;
+    const maintainers = config.maintainers[projectId];
+
+    if (maintainers && maintainers.includes(userEmail)) {
+        return next();
+    }else {
         res.status(403).json({ error: "Access forbidden" });
     }
 };

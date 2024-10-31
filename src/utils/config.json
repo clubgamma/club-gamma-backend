@@ -1,7 +1,11 @@
 {
-    "owner": "test@gmail.com",
-    "maintainers": [
-        "maintainer1@gmail.com",
-        "maintainer2@gmail.com"
-    ]
+    "owner": "xyz@gmail.com",
+    "maintainers": {
+        "club-gamma-frontend": [
+            "xyz@gmail.com"
+        ],
+        "club-gamma-backend": [
+            "xyz@gmail.com"
+        ]
+    }
 }
