@@ -4,6 +4,7 @@ const prisma = require('./PrismaClient');
 const { merge } = require('lodash');
 const ApiError = require('./ApiError');
 const rateLimit = require("express-rate-limit");
+const config = require("./config.json")
 
 const validateSchema = (schema) => async (req, res, next) => {
     try {
@@ -146,6 +147,33 @@ const rateLimiting = rateLimit({
     },
 });
 
+// Middleware to check if user is authorized as owner or maintainer
+const authorizeOwner = (req, res, next) => {
+    const userEmail = req.user.email; 
+    if (userEmail === config.owner) {
+        next();
+    } else {
+        res.status(403).json({ error: "Access forbidden" });
+    }
+};
+
+const authorizeMaintainer = (req, res, next) => {
+    const userEmail = req.user.email;
+
+    if (userEmail === config.owner) {
+        return next();
+    } 
+
+    const { projectId } = req.params;
+    const maintainers = config.maintainers[projectId];
+
+    if (maintainers && maintainers.includes(userEmail)) {
+        return next();
+    }else {
+        res.status(403).json({ error: "Access forbidden" });
+    }
+};
+
 
 module.exports = {
     verifyJWT,
@@ -154,5 +182,7 @@ module.exports = {
     verificationMailSent,
     validateSchema,
     errorMiddleware,
-    rateLimiting
+    rateLimiting,
+    authorizeOwner,
+    authorizeMaintainer
 }
